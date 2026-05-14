@@ -1,0 +1,14 @@
+Firebase Functions 배포 순서
+
+1) 이 폴더(studywithj-app)에서 cmd 열기
+2) 아래 명령어 입력
+
+cd functions
+npm install
+cd ..
+set FUNCTIONS_DISCOVERY_TIMEOUT=120000
+firebase deploy --only functions --project study-with-j
+
+주의: Netlify 배포와 Firebase Functions 배포는 별개입니다.
+- Netlify: 사이트 화면 업데이트
+- Firebase Functions: 핸드폰 푸시 알림 발송 서버 업데이트
