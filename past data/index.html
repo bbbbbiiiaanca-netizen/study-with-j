@@ -36,19 +36,19 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--cream); color:
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
   padding:
-    calc(env(safe-area-inset-top, 0px) + 72px)
+    calc(env(safe-area-inset-top, 0px) + 20px)
     2rem
-    calc(env(safe-area-inset-bottom, 0px) + 40px);
+    calc(env(safe-area-inset-bottom, 0px) + 20px);
   background: #ffffff;
 }
 
 @media (max-width: 768px) {
   #login-page {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 56px);
+    padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
   }
 }
 .logo { font-family: 'DM Serif Display', serif; font-size: 2.4rem; color: var(--brown-dark); margin-bottom: 0.3rem; }
@@ -1135,19 +1135,19 @@ input, select, textarea, button { box-sizing: border-box; }
     padding:2rem !important;
   }
   .wrap {
-    width:940px !important;
+    width:100% !important;
     max-width:940px !important;
     min-width:0 !important;
     margin-left:auto !important;
     margin-right:auto !important;
   }
   #admin-page .wrap {
-    width:1040px !important;
+    width:100% !important;
     max-width:1040px !important;
   }
   #parent-page .wrap,
   #student-page .wrap {
-    width:940px !important;
+    width:100% !important;
     max-width:940px !important;
   }
 }
@@ -1161,7 +1161,7 @@ input, select, textarea, button { box-sizing: border-box; }
     width:100% !important;
     min-height:100svh !important;
     align-items:center !important;
-    justify-content:flex-start !important;
+    justify-content:center !important;
     padding:2rem 1rem 1.25rem !important;
     overflow-x:hidden !important;
   }
