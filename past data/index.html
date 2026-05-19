@@ -1545,6 +1545,7 @@ input, select, textarea, button { box-sizing: border-box; }
 .hw-lock-row { display:flex !important; }
 .hw-lock-btn { display:inline-block !important; }
 .hw-locked-badge, .hw-cell-lock { display:none !important; }
+
 </style>
 </head>
 <body>
@@ -4670,5 +4671,150 @@ async function loadStudent() {
   };
 
 </script>
+
+
+<style id="pc-fixed-width-all-screens-patch">
+/* PC fixed-width ALL SCREENS PATCH */
+@media (min-width:701px) {
+  body {
+    min-width: 1180px !important;
+    overflow-x: auto !important;
+  }
+
+  .topnav {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+  }
+
+  #admin-page > .topnav,
+  #parent-page > .topnav,
+  #student-page > .topnav {
+    padding-left: calc((100vw - 1040px) / 2) !important;
+    padding-right: calc((100vw - 1040px) / 2) !important;
+  }
+
+  #admin-page .wrap,
+  #admin-page .menu-tabs,
+  #admin-page .admin-menu,
+  #admin-page #a-students,
+  #admin-page #a-announcements,
+  #admin-page #a-schedule,
+  #admin-page #a-studylog,
+  #admin-page #a-timetable,
+  #admin-page #a-suggest,
+  #admin-page #a-links,
+  #admin-page #a-backup,
+  #admin-page #a-preview {
+    width: 1040px !important;
+    min-width: 1040px !important;
+    max-width: 1040px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  #parent-page .wrap,
+  #parent-page .menu-tabs,
+  #parent-page .parent-menu,
+  #parent-page .user-menu,
+  #parent-page #p-announcements,
+  #parent-page #p-schedule,
+  #parent-page #p-studylog,
+  #parent-page #p-suggest,
+  #parent-page #p-program,
+  #parent-page #p-links {
+    width: 940px !important;
+    min-width: 940px !important;
+    max-width: 940px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  #student-page .wrap,
+  #student-page .menu-tabs,
+  #student-page .user-menu,
+  #student-page #s-announcements,
+  #student-page #s-schedule,
+  #student-page #s-studylog,
+  #student-page #s-suggest,
+  #student-page #s-links {
+    width: 940px !important;
+    min-width: 940px !important;
+    max-width: 940px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  #admin-page .wrap,
+  #parent-page .wrap,
+  #student-page .wrap {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  #admin-page .card,
+  #admin-page .board-write,
+  #admin-page .hw-cal-wrap,
+  #admin-page .cal-wrap,
+  #admin-page .program-card,
+  #admin-page .sales-table-wrap,
+  #admin-page .timetable-table-wrap,
+  #admin-page .master-timetable-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  #parent-page .card,
+  #parent-page .board-write,
+  #parent-page .hw-cal-wrap,
+  #parent-page .cal-wrap,
+  #parent-page .program-card,
+  #parent-page .sales-table-wrap,
+  #parent-page .timetable-table-wrap,
+  #parent-page .master-timetable-wrap,
+  #student-page .card,
+  #student-page .board-write,
+  #student-page .hw-cal-wrap,
+  #student-page .cal-wrap,
+  #student-page .program-card,
+  #student-page .sales-table-wrap,
+  #student-page .timetable-table-wrap,
+  #student-page .master-timetable-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  #admin-page .master-timetable,
+  #admin-page .timetable-table,
+  #parent-page .master-timetable,
+  #parent-page .timetable-table,
+  #student-page .master-timetable,
+  #student-page .timetable-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .menu-tabs .tab {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .frow2,
+  .frow3 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+</style>
+
 </body>
 </html>
