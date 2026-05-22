@@ -2631,14 +2631,35 @@ function renderAnnCards(docs, withDel) {
   if (!docs.length) return '<div class="empty">공지사항이 없습니다</div>';
   return docs.map(d => {
     const a = d.data();
-    return `<div class="ann-card">
-      <div class="ann-title">${a.title}</div>
-      <div class="ann-body">${a.content}</div>
-      <div class="ann-date">${a.date}</div>
-      ${withDel ? `<button class="btn-del" style="position:absolute;top:0.6rem;right:0.6rem" onclick="window._delAn('${d.id}')">삭제</button>` : ''}
+    const preview = (a.title||'').slice(0,25)+((a.title||'').length>25?'…':'');
+    const annId = `ann-body-${d.id}`;
+    return `<div class="board-list-item" onclick="window._toggleAnn('${annId}')">
+      <div class="board-list-hdr">
+        <div class="board-list-left">
+          <span class="board-list-badge admin">공지</span>
+          <span class="board-list-preview" style="font-weight:600">${preview}</span>
+        </div>
+        <div class="board-list-right">
+          <span class="board-list-date">${a.date||''}</span>
+          ${withDel ? `<button class="btn-del" onclick="event.stopPropagation();window._delAn('${d.id}')">삭제</button>` : ''}
+          <span class="board-list-arrow" id="${annId}-arrow">▼</span>
+        </div>
+      </div>
+      <div class="board-list-body" id="${annId}" style="display:none" onclick="event.stopPropagation()">
+        <div class="ann-body" style="padding:0.6rem 0">${(a.content||'').replace(/\n/g,'<br>')}</div>
+      </div>
     </div>`;
   }).join('');
 }
+
+window._toggleAnn = (id) => {
+  const body = $(id);
+  const arrow = $(`${id}-arrow`);
+  if(!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▼' : '▲';
+};
 
 // ---- LOGIN ----
 window.pickRole = r => {
