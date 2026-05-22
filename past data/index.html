@@ -2257,6 +2257,7 @@ let sel = {}; // selected chips per selector group
 
 // ---- UTILS ----
 const $ = id => document.getElementById(id);
+const _cache = {};
 function formatLocalDate(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -2629,15 +2630,14 @@ function renderCmtCards(docs, withDel) {
 }
 function renderAnnCards(docs, withDel) {
   if (!docs.length) return '<div class="empty">공지사항이 없습니다</div>';
-  return docs.map(d => {
+  return docs.map((d, idx) => {
     const a = d.data();
-    const preview = (a.title||'').slice(0,25)+((a.title||'').length>25?'…':'');
-    const annId = `ann-body-${d.id}`;
+    const annId = `ann-body-${idx}`;
     return `<div class="board-list-item" onclick="window._toggleAnn('${annId}')">
       <div class="board-list-hdr">
         <div class="board-list-left">
           <span class="board-list-badge admin">공지</span>
-          <span class="board-list-preview" style="font-weight:600">${preview}</span>
+          <span class="board-list-preview" style="font-weight:600">${(a.title||'').slice(0,25)+((a.title||'').length>25?'…':'')}</span>
         </div>
         <div class="board-list-right">
           <span class="board-list-date">${a.date||''}</span>
@@ -2653,8 +2653,8 @@ function renderAnnCards(docs, withDel) {
 }
 
 window._toggleAnn = (id) => {
-  const body = $(id);
-  const arrow = $(`${id}-arrow`);
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(`${id}-arrow`);
   if(!body) return;
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
@@ -2724,7 +2724,7 @@ window.doLogin = async () => {
     if (role === 'parent') {
       showPage('parent-page');
       $('parent-tag').textContent = `${data.name} 학부모님`;
-      $('p-hw-title').textContent = `📝 ${data.name} 숙제`;
+      if($('p-hw-title')) $('p-hw-title').textContent = `📝 ${data.name} 숙제`;
       loadParent(); initPushMessaging();
     } else {
       showPage('student-page');
@@ -2877,6 +2877,7 @@ function showPage(id) {
 
 window.doLogout = () => {
   role = null; curStudent = null; sel = {};
+  Object.keys(_cache).forEach(k => delete _cache[k]);
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
   $('login-pw').value = '';
   $('name-group').style.display = 'none';
@@ -2941,19 +2942,20 @@ window.pTab = (t, btn) => {
   ['announcements','schedule','homework','lessons','studylog','program','suggest','links'].forEach(x=>{const el=$('p-'+x);if(el)el.style.display='none';});
   document.querySelectorAll('#parent-page .tab').forEach(b => b.classList.remove('on'));
   btn.classList.add('on'); $('p-'+t).style.display = 'block';
-  if (t==='schedule') loadParentSched();
-  if (t==='studylog') { pSlTab('hw', document.getElementById('p-sl-tab-hw')); reloadHomeworkView('parent', curStudent?.id); }
-  if (t==='suggest') loadPSuggest();
+  if (t==='schedule' && !_cache.pSchedLoaded) { _cache.pSchedLoaded=true; loadParentSched(); }
+  if (t==='studylog' && !_cache.pStudylogLoaded) { _cache.pStudylogLoaded=true; pSlTab('hw', document.getElementById('p-sl-tab-hw')); reloadHomeworkView('parent', curStudent?.id); }
+  else if (t==='studylog') { pSlTab('hw', document.getElementById('p-sl-tab-hw')); }
+  if (t==='suggest' && !_cache.pSuggestLoaded) { _cache.pSuggestLoaded=true; loadPSuggest(); }
 };
 window.sTab = (t, btn) => {
   ['announcements','schedule','homework','studylog','suggest','links'].forEach(x=>{const el=$('s-'+x);if(el)el.style.display='none';});
   document.querySelectorAll('#student-page .tab').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   const target = $('s-'+t);
-  if (target) target.style.display = (t==='studylog') ? 'block' : 'block';
-  if (t==='schedule') loadStudentSched();
-  if (t==='studylog') reloadHomeworkView('student', curStudent?.id);
-  if (t==='suggest') loadSSuggest();
+  if (target) target.style.display = 'block';
+  if (t==='schedule' && !_cache.sSchedLoaded) { _cache.sSchedLoaded=true; loadStudentSched(); }
+  if (t==='studylog' && !_cache.sStudylogLoaded) { _cache.sStudylogLoaded=true; reloadHomeworkView('student', curStudent?.id); }
+  if (t==='suggest' && !_cache.sSuggestLoaded) { _cache.sSuggestLoaded=true; loadSSuggest(); }
 };
 
 // ---- ADMIN INIT ----
@@ -3275,46 +3277,71 @@ window.addAnnouncement = async () => {
     await addDoc(collection(db, 'announcements'), { title, content, date: today(), createdAt: Timestamp.now() });
     $('an-title').value = ''; $('an-body').value = '';
     msg('an-ok','an-ng','공지사항이 올라갔어요!',true);
+    delete _cache.annSnap;
     loadAnnouncements('an-list', true);
   } catch(e) { msg('an-ok','an-ng','오류가 발생했습니다.',false); }
 };
 async function loadAnnouncements(elId, withDel) {
   const el = $(elId);
+  if(!el) return;
   el.innerHTML = '<div class="loading-txt">불러오는 중...</div>';
   try {
+    if(!withDel && _cache.annSnap) {
+      el.innerHTML = renderAnnCards(_cache.annSnap.docs, withDel);
+      return;
+    }
     const snap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt','desc')));
+    _cache.annSnap = snap;
     el.innerHTML = renderAnnCards(snap.docs, withDel);
-  } catch(e) { el.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+  } catch(e) { console.error('loadAnnouncements error:', e); el.innerHTML = '<div class="empty">불러오기 실패</div>'; }
 }
 window._delAn = async (id) => {
   if (!confirm('이 공지사항을 삭제할까요?')) return;
-  await deleteDoc(doc(db, 'announcements', id)); loadAnnouncements('an-list', true);
+  await deleteDoc(doc(db, 'announcements', id));
+  delete _cache.annSnap;
+  loadAnnouncements('an-list', true);
 };
 
 // ---- PARENT ----
 async function loadParent() {
-  loadAnnouncements('p-ann-list', false);
   const sid = curStudent.id;
-  // homework
-  const hwSnap = await getDocs(query(collection(db, 'homework'), orderBy('createdAt','desc')));
-  const hwDocs = hwSnap.docs.filter(d => d.data().studentId === sid);
-  pHwLocks = await loadHomeworkLocks(sid);
-  pHwAllDocs=hwDocs; pHwOffset=0; $('p-hw-list').innerHTML=renderHwWeekly(pHwAllDocs,'parent',0); if($('p-hw-week-lbl')) $('p-hw-week-lbl').textContent=hwWeekLabel(0);
-  refreshNotifications('parent');
+  // 병렬로 한 번에 다 불러오기
+  const [hwSnap, annSnap, locks] = await Promise.all([
+    _cache.hwSnap || getDocs(query(collection(db, 'homework'), orderBy('createdAt','desc'))),
+    _cache.annSnap || getDocs(query(collection(db, 'announcements'), orderBy('createdAt','desc'))),
+    loadHomeworkLocks(sid)
+  ]);
+  _cache.hwSnap = hwSnap;
+  _cache.annSnap = annSnap;
 
+  const hwDocs = hwSnap.docs.filter(d => d.data().studentId === sid);
+  pHwLocks = locks;
+  pHwAllDocs = hwDocs; pHwOffset = 0;
+  if($('p-hw-list')) $('p-hw-list').innerHTML = renderHwWeekly(pHwAllDocs,'parent',0);
+  if($('p-hw-week-lbl')) $('p-hw-week-lbl').textContent = hwWeekLabel(0);
+  if($('p-ann-list')) $('p-ann-list').innerHTML = renderAnnCards(annSnap.docs, false);
+  refreshNotifications('parent');
 }
 
 // ---- STUDENT ----
 async function loadStudent() {
-  if($('s-hw-due')) $('s-hw-due').value=today();
-  loadAnnouncements('s-ann-list', false);
+  if($('s-hw-due')) $('s-hw-due').value = today();
   const sid = curStudent.id;
-  const hwSnap = await getDocs(query(collection(db, 'homework'), orderBy('createdAt','desc')));
-  const hwDocs = hwSnap.docs.filter(d => d.data().studentId === sid);
-  sHwLocks = await loadHomeworkLocks(sid);
-  sHwAllDocs=hwDocs; sHwOffset=0; $('s-hw-list').innerHTML=renderHwWeekly(sHwAllDocs,'student',0); if($('s-hw-week-lbl')) $('s-hw-week-lbl').textContent=hwWeekLabel(0);
-  refreshNotifications('student');
+  const [hwSnap, annSnap, locks] = await Promise.all([
+    _cache.hwSnap || getDocs(query(collection(db, 'homework'), orderBy('createdAt','desc'))),
+    _cache.annSnap || getDocs(query(collection(db, 'announcements'), orderBy('createdAt','desc'))),
+    loadHomeworkLocks(sid)
+  ]);
+  _cache.hwSnap = hwSnap;
+  _cache.annSnap = annSnap;
 
+  const hwDocs = hwSnap.docs.filter(d => d.data().studentId === sid);
+  sHwLocks = locks;
+  sHwAllDocs = hwDocs; sHwOffset = 0;
+  if($('s-hw-list')) $('s-hw-list').innerHTML = renderHwWeekly(sHwAllDocs,'student',0);
+  if($('s-hw-week-lbl')) $('s-hw-week-lbl').textContent = hwWeekLabel(0);
+  if($('s-ann-list')) $('s-ann-list').innerHTML = renderAnnCards(annSnap.docs, false);
+  refreshNotifications('student');
 }
 
   // ===== SCHEDULE & CALENDAR =====
@@ -3700,15 +3727,15 @@ async function loadStudent() {
       if($('p-cal-grid')) $('p-cal-grid').innerHTML='<div class="empty">아직 이 달 스케줄은 확정 전입니다.</div>';
       return;
     }
-    try { const snap = await getDoc(doc(db,'student_schedules',curStudent.id)); pSlots = snap.exists()?(snap.data().weeklySlots||[]): []; } catch(e){pSlots=[];}
+    if(!_cache.slots){try{const snap=await getDoc(doc(db,"student_schedules",curStudent.id));_cache.slots=snap.exists()?(snap.data().weeklySlots||[]):[];}catch(e){_cache.slots=[];}} pSlots=_cache.slots;
     await loadEvts(curStudent.id, pCalY, pCalM, pEvts);
     const pDone=Object.values(pEvts).filter(e=>e.type==='attended'||e.type==='makeup').length;
     const pDeducted=Object.values(pEvts).filter(e=>e.type==='absent').length;
     if(pSlots.length){
       $('p-sched-info').style.display='flex';
       try{
-        const pSnap=await getDoc(doc(db,'students',curStudent.id));
-        const pTarget=pSnap.exists()?(pSnap.data().monthlyTarget||0):0;
+        if(!_cache.studentData){const pSnap=await getDoc(doc(db,'students',curStudent.id));_cache.studentData=pSnap.exists()?pSnap.data():{};}
+        const pTarget=_cache.studentData.monthlyTarget||0;
         const pRemain=pTarget-(pDone+pDeducted);
         if($('p-inf-target')) { $('p-inf-target').textContent=pTarget?pTarget+'회':'미설정'; $('p-inf-done').textContent=pDone+'회'; $('p-inf-remain').textContent=pTarget?(pRemain)+'회':'-'; $('p-inf-remain').style.color=pRemain>0?'#e53935':'#2E7D32'; }
       }catch(e){}
@@ -4362,7 +4389,7 @@ async function loadStudent() {
     if(!body){alert('내용을 입력하세요');return;}
     try{
       await addDoc(collection(db,'feedbacks'),{studentId:curStudent.id,studentName:curStudent.name,thread:'parent',senderRole:'parent',title:'',content:body,date:today(),createdAt:Timestamp.now()});
-      $('p-sg-body').value=''; await loadPSuggest();
+      $('p-sg-body').value=''; delete _cache.pSuggestLoaded; await loadPSuggest();
     }catch(e){}
   };
 
@@ -4381,7 +4408,7 @@ async function loadStudent() {
     if(!body){alert('내용을 입력하세요');return;}
     try{
       await addDoc(collection(db,'feedbacks'),{studentId:curStudent.id,studentName:curStudent.name,thread:'student',senderRole:'student',title:'',content:body,date:today(),createdAt:Timestamp.now()});
-      $('s-sg-body').value=''; await loadSSuggest();
+      $('s-sg-body').value=''; delete _cache.sSuggestLoaded; await loadSSuggest();
     }catch(e){}
   };
 
@@ -4397,12 +4424,9 @@ async function loadStudent() {
 
   window.setParentLessonSection = (mode) => {
     window._pLessonMode = mode;
-    const reportSec = $('p-report-section'), lessonSec = $('p-lesson-section');
-    const reportTab = $('p-report-tab'), lessonTab = $('p-lesson-tab');
+    const reportSec = $('p-sl-report'), lessonSec = $('p-sl-hw');
     if(reportSec) reportSec.style.display = mode === 'reports' ? 'block' : 'none';
-    if(lessonSec) lessonSec.style.display = mode === 'lessons' ? 'block' : 'none';
-    if(reportTab) reportTab.classList.toggle('on', mode === 'reports');
-    if(lessonTab) lessonTab.classList.toggle('on', mode === 'lessons');
+    if(lessonSec) lessonSec.style.display = mode === 'lessons' ? 'none' : 'block';
   };
 
   function tsMillis(v){
