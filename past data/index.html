@@ -223,6 +223,8 @@ textarea.finput { resize: vertical; min-height: 80px; }
 .absent { background: #BDBDBD !important; }
 .excused { background: #F5F5F5 !important; border: 1.5px dashed #aaa !important; }
 .makeup { background: #FFF9C4 !important; border-color: #FDD835 !important; }
+.party { background: #FFD6E0 !important; border-color: #F48FB1 !important; }
+.scheduled-manual { background: #C8E6C9 !important; border-color: #81C784 !important; }
 .selected-cell { outline: 2px solid var(--brown-dark); outline-offset: 1px; }
 .cal-dn { font-size: 0.8rem; font-weight: 600; display: block; }
 .cal-lbl { font-size: 0.58rem; margin-top: 0.1rem; display: block; line-height: 1.2; }
@@ -1577,6 +1579,14 @@ input, select, textarea, button { box-sizing: border-box; }
       <input type="password" class="finput" id="login-pw" placeholder="비밀번호를 입력하세요">
     </div>
     <div class="err" id="login-err">이름 또는 비밀번호가 올바르지 않습니다.</div>
+    <div style="display:flex;gap:1rem;margin-bottom:0.8rem;font-size:0.82rem;color:var(--muted);justify-content:center">
+      <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+        <input type="checkbox" id="chk-remember" style="cursor:pointer"> 아이디 기억
+      </label>
+      <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+        <input type="checkbox" id="chk-autologin" style="cursor:pointer"> 자동로그인
+      </label>
+    </div>
     <button class="btn-main" onclick="doLogin()">LOG IN</button>
   </div>
 </div>
@@ -1621,7 +1631,7 @@ input, select, textarea, button { box-sizing: border-box; }
       <button class="tab" onclick="aTab('schedule',this)">📅 스케줄</button>
       <button class="tab" onclick="aTab('studylog',this)">📚 학습기록</button>
       <button class="tab" onclick="aTab('timetable',this)">📋 시간표</button>
-      <button class="tab" onclick="aTab('suggest',this)">✉️ 건의사항</button>
+      <button class="tab" onclick="aTab('suggest',this)">✉️ 메시지함</button>
       <button class="tab" onclick="aTab('links',this)">🔗 바로가기</button>
       <button class="tab" onclick="aTab('backup',this)">🛡 백업복원</button>
       <button class="tab" onclick="aTab('preview',this)">👁 미리보기</button>
@@ -1755,7 +1765,7 @@ input, select, textarea, button { box-sizing: border-box; }
     <!-- 건의사항 -->
     <div id="a-suggest" style="display:none">
       <div class="card">
-        <div class="ctitle">✉️ 건의사항 게시판</div>
+        <div class="ctitle">✉️ 메시지함</div>
         <div class="fgroup"><label class="flabel">학생 선택</label><div class="chips" id="sg-chips"></div></div>
         <div id="sg-role-row" class="fgroup" style="display:none">
           <label class="flabel">채널</label>
@@ -1828,8 +1838,8 @@ input, select, textarea, button { box-sizing: border-box; }
           <button class="tab on" data-pv-tab="announcements" onclick="pvTab('announcements',this)">📢 공지사항</button>
           <button class="tab" data-pv-tab="schedule" onclick="pvTab('schedule',this)">📅 스케줄</button>
           <button class="tab" data-pv-tab="homework" onclick="pvTab('homework',this)">📚 학습기록</button>
-          <button class="tab" data-pv-tab="lessons" onclick="pvTab('lessons',this)" style="display:none">📓 수업일지</button>
-          <button class="tab" data-pv-tab="suggest" onclick="pvTab('suggest',this)">✉️ 건의사항</button>
+          <button class="tab" data-pv-tab="program" id="pv-tab-program" onclick="pvTab('program',this)" style="display:none">💎 Program</button>
+          <button class="tab" data-pv-tab="suggest" onclick="pvTab('suggest',this)">✉️ 문의&건의</button>
           <button class="tab" data-pv-tab="links" onclick="pvTab('links',this)">🔗 바로가기</button>
         </div>
         <div id="pv-announcements"><div id="pv-ann-list"><div class="loading-txt">불러오는 중...</div></div></div>
@@ -1842,6 +1852,39 @@ input, select, textarea, button { box-sizing: border-box; }
           <div id="pv-report-section" style="display:none;max-height:360px;overflow-y:auto;padding-right:0.25rem"><div id="pv-report-list"><div class="loading-txt">불러오는 중...</div></div></div>
         </div>
         <div id="pv-lessons" style="display:none"></div>
+        <div id="pv-program" style="display:none">
+          <div class="stitle">💎 Program</div>
+          <div class="program-card">
+            <div class="program-tabs">
+              <button class="on" onclick="this.classList.add('on');this.nextElementSibling.classList.remove('on');this.parentElement.nextElementSibling.classList.add('on');this.parentElement.nextElementSibling.nextElementSibling.classList.remove('on')">초등</button>
+              <button onclick="this.classList.add('on');this.previousElementSibling.classList.remove('on');this.parentElement.nextElementSibling.classList.remove('on');this.parentElement.nextElementSibling.nextElementSibling.classList.add('on')">중등</button>
+            </div>
+            <div class="program-section on">
+              <div class="program-table-wrap">
+                <table class="program-table">
+                  <thead><tr><th>수업시간</th><th>주 2회<br>(8회)</th><th>주 3회<br>(12회)</th><th>주 4회<br>(16회)</th><th>주 5회<br>(20회)</th></tr></thead>
+                  <tbody>
+                    <tr><td>90분</td><td class="program-price"><span class="program-money">216,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">324,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">432,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">540,000</span><span class="program-won">원</span></td></tr>
+                    <tr><td>2시간</td><td class="program-price"><span class="program-money">288,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">432,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">576,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">720,000</span><span class="program-won">원</span></td></tr>
+                    <tr><td>3시간</td><td class="program-price"><span class="program-money">432,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">648,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">864,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">1,080,000</span><span class="program-won">원</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="program-section">
+              <div class="program-table-wrap">
+                <table class="program-table">
+                  <thead><tr><th>수업시간</th><th>주 2회<br>(8회)</th><th>주 3회<br>(12회)</th><th>주 4회<br>(16회)</th><th>주 5회<br>(20회)</th></tr></thead>
+                  <tbody>
+                    <tr><td>90분</td><td class="program-price"><span class="program-money">288,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">432,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">576,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">720,000</span><span class="program-won">원</span></td></tr>
+                    <tr><td>2시간</td><td class="program-price"><span class="program-money">384,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">576,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">768,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">960,000</span><span class="program-won">원</span></td></tr>
+                    <tr><td>3시간</td><td class="program-price"><span class="program-money">576,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">864,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">1,152,000</span><span class="program-won">원</span></td><td class="program-price"><span class="program-money">1,440,000</span><span class="program-won">원</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="pv-suggest" style="display:none"><div id="pv-sg-posts"><div class="loading-txt">불러오는 중...</div></div></div>
         <div id="pv-links" style="display:none">
           <div class="stitle">🔗 한양J쌤 바로가기</div>
@@ -1910,7 +1953,9 @@ input, select, textarea, button { box-sizing: border-box; }
           </div>
           <div class="publish-box">
             <div class="publish-status" id="sched-publish-status">확정 상태 확인 중...</div>
-            <button class="btn-add" id="sched-publish-btn" onclick="toggleSchedulePublish()">이 달 스케줄 확정</button>
+            <button class="btn-add" id="sched-publish-btn" onclick="toggleSchedulePublish()" style="margin-bottom:0.4rem">이 달 스케줄 확정</button>
+            <button class="btn-add" id="sched-lock-btn" onclick="toggleScheduleLock()" style="background:#5C6BC0">🔒 스케줄 잠금</button>
+            <div class="publish-status" id="sched-lock-status" style="margin-top:0.25rem"></div>
           </div>
           <div id="cal-grid" class="cal-wrap"></div>
           <div class="legend">
@@ -1918,15 +1963,18 @@ input, select, textarea, button { box-sizing: border-box; }
             <div class="legend-item"><div class="legend-dot" style="background:#B3E5FC"></div>출석</div>
             <div class="legend-item"><div class="legend-dot" style="background:#E0E0E0"></div>결석</div>
             <div class="legend-item"><div class="legend-dot" style="background:#FFF9C4;border:1px solid #FDD835"></div>보강</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FFD6E0;border:1px solid #F48FB1"></div>보강+PARTY</div>
           </div>
         </div>
         <div class="card" id="day-panel" style="display:none">
           <div class="ctitle" id="day-panel-title" style="margin-bottom:0.5rem"></div>
           <div class="day-action">
+            <button class="day-btn" onclick="markDay('scheduled')" style="background:#C8E6C9;border-color:#81C784;color:#1B5E20">📅 수업예정</button>
             <button class="day-btn" onclick="markDay('attended')" style="background:#B3E5FC">✓ 출석</button>
             <button class="day-btn" onclick="markDay('absent')" style="background:#BDBDBD;color:#333">✗ 결석 (차감)</button>
             <button class="day-btn" onclick="markDay('excused')" style="background:#F5F5F5;border:1.5px dashed #aaa;color:#555">○ 공결 (보강예정)</button>
             <button class="day-btn" onclick="markDay('makeup')" style="background:#FFF9C4;border-color:#FDD835">＋ 보강</button>
+            <button class="day-btn" onclick="markDay('party')" style="background:#FFD6E0;border-color:#F48FB1;color:#880E4F">🎉 보강+PARTY</button>
             <button class="day-btn" onclick="markDay('clear')" style="background:white;border-color:var(--border)">초기화</button>
           </div>
         </div>
@@ -1965,7 +2013,7 @@ input, select, textarea, button { box-sizing: border-box; }
       <button class="tab on" onclick="pTab('announcements',this)">📢 공지사항</button>
       <button class="tab" onclick="pTab('schedule',this)">📅 스케줄</button>
       <button class="tab" onclick="pTab('studylog',this)">📚 학습기록</button>
-      <button class="tab" onclick="pTab('suggest',this)">✉️ 건의사항</button>
+      <button class="tab" onclick="pTab('suggest',this)">✉️ 문의&건의</button>
       <button class="tab" onclick="pTab('program',this)">💎 Program</button>
       <button class="tab" onclick="pTab('links',this)">🔗 바로가기</button>
     </div>
@@ -2030,11 +2078,12 @@ input, select, textarea, button { box-sizing: border-box; }
     </div>
 
     <div id="p-suggest" style="display:none">
-      <div class="stitle">✉️ 건의사항 게시판</div>
+      <div class="stitle">✉️ 문의&건의</div>
+      <div style="background:#f0f4ff;border-radius:10px;padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.78rem;color:#555;line-height:1.6;border:1px solid #dce4f5">🔒 작성하신 글은 작성자와 관리자만 확인할 수 있으며, 학생 또는 다른 학부모들에게 보이지 않습니다.</div>
       <div class="card">
         <div class="board-write">
           <div class="board-write-title">✏️ 글쓰기</div>
-          <div class="fgroup"><textarea class="finput" id="p-sg-body" placeholder="건의사항 내용을 입력하세요" style="min-height:100px;resize:vertical"></textarea></div>
+          <div class="fgroup"><textarea class="finput" id="p-sg-body" placeholder="내용을 입력하세요" style="min-height:100px;resize:vertical"></textarea></div>
           <button class="btn-add" onclick="window.postPSgMsg()">게시하기</button>
         </div>
         <div id="p-sg-posts"><div class="loading-txt">불러오는 중...</div></div>
@@ -2087,7 +2136,7 @@ input, select, textarea, button { box-sizing: border-box; }
       <button class="tab on" onclick="sTab('announcements',this)">📢 공지사항</button>
       <button class="tab" onclick="sTab('schedule',this)">📅 스케줄</button>
       <button class="tab" onclick="sTab('studylog',this)">📚 학습기록</button>
-      <button class="tab" onclick="sTab('suggest',this)">✉️ 건의사항</button>
+      <button class="tab" onclick="sTab('suggest',this)">💌 소통게시판</button>
       <button class="tab" onclick="sTab('links',this)">🔗 바로가기</button>
     </div>
     <div id="s-announcements"><div class="stitle">📢 공지사항</div><div id="s-ann-list"><div class="loading-txt">불러오는 중...</div></div></div>
@@ -2121,11 +2170,12 @@ input, select, textarea, button { box-sizing: border-box; }
       </div>
     </div>
     <div id="s-suggest" style="display:none">
-      <div class="stitle">✉️ 건의사항 게시판</div>
+      <div class="stitle">💌 소통게시판</div>
+      <div style="background:#f0f4ff;border-radius:10px;padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.78rem;color:#555;line-height:1.6;border:1px solid #dce4f5">🔒 작성하신 글은 작성자와 관리자만 확인할 수 있으며, 학생 또는 다른 학부모들에게 보이지 않습니다.</div>
       <div class="card">
         <div class="board-write">
           <div class="board-write-title">✏️ 글쓰기</div>
-          <div class="fgroup"><textarea class="finput" id="s-sg-body" placeholder="건의사항 내용을 입력하세요" style="min-height:100px;resize:vertical"></textarea></div>
+          <div class="fgroup"><textarea class="finput" id="s-sg-body" placeholder="내용을 입력하세요" style="min-height:100px;resize:vertical"></textarea></div>
           <button class="btn-add" onclick="window.postSSgMsg()">게시하기</button>
         </div>
         <div id="s-sg-posts"><div class="loading-txt">불러오는 중...</div></div>
@@ -2408,7 +2458,7 @@ function renderHwCalendar(allDocs, viewRole, year, month, container) {
       <div class="hw-cal-title">${year}년 ${month+1}월</div>
       <button class="hw-cal-nav" onclick="hwCalNav(1,'${container}')">›</button>
     </div>
-    ${viewRole==='parent'?`<div class="parent-hw-summary"><div>이번 달 숙제 완성률 <span class="parent-hw-rate-big">${monthRate}%</span></div><div class="sub">완료 ${monthDone}개 / 전체 ${monthTotal}개</div></div>`:''}
+    ${(viewRole==='parent'||viewRole==='student')?`<div class="parent-hw-summary"><div>이번 달 숙제 완성률 <span class="parent-hw-rate-big">${monthRate}%</span></div><div class="sub">완료 ${monthDone}개 / 전체 ${monthTotal}개</div></div>`:''}
     <div class="hw-cal-grid">`;
   DAYS.forEach((d,i)=>h+=`<div class="hw-cal-dh${i===0?' s':i===6?' sa':''}">${d}</div>`);
   for(let i=0;i<firstDow;i++) h+=`<div class="hw-cal-day hw-cal-empty"></div>`;
@@ -2428,7 +2478,7 @@ function renderHwCalendar(allDocs, viewRole, year, month, container) {
     if(isSel) cls+=' hw-today';
     const dots = items.length ? `<div class="hw-dots">${Array.from({length:done},()=>'<div class="hw-dot-item hw-dot-done"></div>').join('')}${Array.from({length:Math.min(todo,5)},()=>'<div class="hw-dot-item hw-dot-todo"></div>').join('')}${Array.from({length:Math.min(progressCnt,5)},()=>'<div class="hw-dot-item hw-dot-progress"></div>').join('')}${Array.from({length:Math.min(commentCnt,5)},()=>'<div class="hw-dot-item hw-dot-comment"></div>').join('')}</div>` : '';
     const dayRate = hwItems.length ? Math.round(done/hwItems.length*100) : 0;
-    const parentRateBadge = (viewRole==='parent' && hwItems.length) ? `<div class="hw-cell-rate">${dayRate}%</div>` : '';
+    const parentRateBadge = ((viewRole==='parent'||viewRole==='student'||viewRole==='admin') && hwItems.length) ? `<div class="hw-cell-rate">${dayRate}%</div>` : '';
     h+=`<div class="${cls}" onclick="hwCalClickDay('${ds}','${container}')">
       <div class="hw-cal-dn" style="${isHoliday?'color:#e53935':''}">${d}</div>
       ${isToday?'<div class="hw-today-label">TODAY</div>':''}
@@ -2600,8 +2650,15 @@ window.doLogin = async () => {
 
   if (!role) { showErr('역할을 선택해주세요.'); return; }
 
+  const rememberChecked = $('chk-remember') && $('chk-remember').checked;
+  const autoLoginChecked = $('chk-autologin') && $('chk-autologin').checked;
+
   if (role === 'admin') {
-    if (pw === ADMIN_PW) { showPage('admin-page'); await initAdmin(); initPushMessaging(); }
+    if (pw === ADMIN_PW) {
+      if (rememberChecked) localStorage.setItem('hj_remember', JSON.stringify({ role: 'admin' }));
+      if (autoLoginChecked) localStorage.setItem('hj_autologin', JSON.stringify({ role: 'admin', pw }));
+      showPage('admin-page'); await initAdmin(); initPushMessaging();
+    }
     else showErr('관리자 비밀번호가 틀렸습니다.');
     return;
   }
@@ -2621,6 +2678,13 @@ window.doLogin = async () => {
     const expectedPw = role === 'parent' ? data.birthdate + '0' : data.birthdate;
     if (expectedPw !== pw) { showErr('비밀번호가 올바르지 않습니다.'); return; }
     curStudent = { id: sid, name: data.name };
+
+    if (rememberChecked) localStorage.setItem('hj_remember', JSON.stringify({ role, name: nameInput }));
+    if (autoLoginChecked) localStorage.setItem('hj_autologin', JSON.stringify({ role, name: nameInput, pw }));
+    if (!rememberChecked && !autoLoginChecked) {
+      localStorage.removeItem('hj_remember');
+      localStorage.removeItem('hj_autologin');
+    }
 
     if (role === 'parent') {
       showPage('parent-page');
@@ -2782,6 +2846,21 @@ window.doLogout = () => {
   $('login-pw').value = '';
   $('name-group').style.display = 'none';
   $('login-err').style.display = 'none';
+  // 자동로그인 해제 (아이디기억은 유지)
+  localStorage.removeItem('hj_autologin');
+  if ($('chk-autologin')) $('chk-autologin').checked = false;
+  // 아이디 기억 복원
+  try {
+    const rememberData = localStorage.getItem('hj_remember');
+    if (rememberData) {
+      const saved = JSON.parse(rememberData);
+      if (saved.role) {
+        pickRole(saved.role);
+        if (saved.name) $('inp-student').value = saved.name;
+        if ($('chk-remember')) $('chk-remember').checked = true;
+      }
+    }
+  } catch(e) {}
   showPage('login-page');
 };
 
@@ -3377,6 +3456,8 @@ async function loadStudent() {
         else if(ev.type==='absent'){cls+=' absent';lbl='<span class="cal-lbl" style="color:#424242">결석</span>';}
         else if(ev.type==='excused'){cls+=' excused';lbl='<span class="cal-lbl" style="color:#757575">공결</span>';}
         else if(ev.type==='makeup'){cls+=' makeup';lbl='<span class="cal-lbl" style="color:#F57F17">보강</span>';}
+        else if(ev.type==='party'){cls+=' party';lbl='<span class="cal-lbl" style="color:#880E4F">🎉PARTY</span>';}
+        else if(ev.type==='scheduled'){cls+=' scheduled-manual';lbl='<span class="cal-lbl" style="color:#1B5E20">예정</span>';}
       } else if(isReg){
         cls+=' regular';
         const slot = slots.find(s=>s.day===dow);
@@ -3403,6 +3484,7 @@ async function loadStudent() {
     const d = new Date(ds);
     $('day-panel-title').textContent = d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DAYS_KR[d.getDay()]+'요일)';
     $('day-panel').style.display = 'block';
+    applyScheduleLockToPanel();
     renderCal('cal-grid','cal-title', calYear, calMonth, currentSlots, calEvts, true);
     updateProgress();
   };
@@ -3421,13 +3503,7 @@ async function loadStudent() {
     delete calEvts[selectedDay];
 
     if (type === 'clear') {
-      // 공휴일을 지웠는데 다시 자동 공결로 살아나는 걸 막기 위한 수동 비움 기록입니다.
-      const safeId = `${schedSel.id}_${selectedDay}`.replace(/[^a-zA-Z0-9_-]/g,'_');
-      await setDoc(doc(db,'schedule_events',safeId), {
-        studentId: schedSel.id, studentName: schedSel.name,
-        date: selectedDay, type: 'none', manualClear: true, updatedAt: Timestamp.now()
-      }, {merge:false});
-      calEvts[selectedDay] = { type:'none', id:safeId, ids:[safeId] };
+      // 해당 날짜 기록 완전 삭제 → 진짜 빈 날짜로
       $('day-panel').style.display = 'none';
       selectedDay = null;
       renderCal('cal-grid','cal-title', calYear, calMonth, currentSlots, calEvts, true);
@@ -3450,7 +3526,7 @@ async function loadStudent() {
     if (!schedSel) return;
     const studentData = students.find(s => s.id === schedSel.id);
     const target = studentData?.monthlyTarget || 0;
-    const done = Object.values(calEvts).filter(e=>e.type==='attended'||e.type==='makeup').length;
+    const done = Object.values(calEvts).filter(e=>e.type==='attended'||e.type==='makeup'||e.type==='party').length;
     const deducted = Object.values(calEvts).filter(e=>e.type==='absent').length;
     const remain = target - done - deducted;
     if($('inf-target')) $('inf-target').textContent = target ? target+'회' : '미설정';
@@ -3540,7 +3616,40 @@ async function loadStudent() {
     } catch(e) { alert('저장 실패'); }
   };
 
-  // Parent schedule
+  window.toggleScheduleLock = async () => {
+    if(!schedSel){ alert('학생을 먼저 선택하세요.'); return; }
+    const lockBtn = $('sched-lock-btn');
+    const lockStatus = $('sched-lock-status');
+    const isLocked = lockBtn && lockBtn.dataset.locked === 'true';
+    if(isLocked) {
+      // 잠금 해제
+      lockBtn.dataset.locked = 'false';
+      lockBtn.textContent = '🔒 스케줄 잠금';
+      lockBtn.style.background = '#5C6BC0';
+      if(lockStatus) { lockStatus.textContent = '잠금 해제됨 · 수정 가능'; lockStatus.style.color = '#e53935'; }
+      // day-panel 버튼들 다시 활성화
+      document.querySelectorAll('#day-panel .day-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    } else {
+      // 잠금
+      lockBtn.dataset.locked = 'true';
+      lockBtn.textContent = '🔓 잠금 해제';
+      lockBtn.style.background = '#2E7D32';
+      if(lockStatus) { lockStatus.textContent = '잠금됨 · 수정 불가'; lockStatus.style.color = '#2E7D32'; }
+      // day-panel 버튼들 비활성화
+      document.querySelectorAll('#day-panel .day-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+    }
+  };
+
+  // day-panel 열릴 때 잠금 상태 반영
+  function applyScheduleLockToPanel() {
+    const lockBtn = $('sched-lock-btn');
+    if(!lockBtn) return;
+    const isLocked = lockBtn.dataset.locked === 'true';
+    document.querySelectorAll('#day-panel .day-btn').forEach(b => {
+      b.disabled = isLocked;
+      b.style.opacity = isLocked ? '0.4' : '1';
+    });
+  }
   async function loadParentSched() {
     if (!curStudent) return;
     $('p-cal-title').textContent = pCalY+'년 '+(pCalM+1)+'월';
@@ -3964,6 +4073,16 @@ async function loadStudent() {
     if(pvContent) pvContent.style.display='block';
     const pvNotifyWrap=$('pv-parent-notify-wrap');
     if(pvNotifyWrap) pvNotifyWrap.style.display = role==='parent' ? 'flex' : 'none';
+
+    // 역할에 따라 탭 이름/표시 변경 (실제 화면과 완전 동일하게)
+    const suggestTab = document.querySelector('#pv-tabs [data-pv-tab="suggest"]');
+    if(suggestTab) {
+      suggestTab.textContent = role === 'student' ? '💌 소통게시판' : '✉️ 문의&건의';
+    }
+    // Program 탭: 학부모만 표시
+    const programTab = $('pv-tab-program');
+    if(programTab) programTab.style.display = role === 'parent' ? '' : 'none';
+
     await loadPvData();
   };
 
@@ -4669,6 +4788,35 @@ async function loadStudent() {
       if($('s-hw-week-lbl')) $('s-hw-week-lbl').textContent=hwWeekLabel(0);
     } catch(e){ msg('s-hw-ok','s-hw-ng','오류가 발생했습니다.',false); }
   };
+
+// ---- 아이디 기억 / 자동로그인 복원 ----
+(async function restoreLogin() {
+  try {
+    const autoData = localStorage.getItem('hj_autologin');
+    if (autoData) {
+      const saved = JSON.parse(autoData);
+      // 자동로그인: 저장된 정보로 바로 로그인
+      if (saved.role) {
+        pickRole(saved.role);
+        if (saved.name) $('inp-student').value = saved.name;
+        if (saved.pw) $('login-pw').value = saved.pw;
+        if ($('chk-autologin')) $('chk-autologin').checked = true;
+        if ($('chk-remember')) $('chk-remember').checked = true;
+        await doLogin();
+        return;
+      }
+    }
+    const rememberData = localStorage.getItem('hj_remember');
+    if (rememberData) {
+      const saved = JSON.parse(rememberData);
+      if (saved.role) {
+        pickRole(saved.role);
+        if (saved.name) $('inp-student').value = saved.name;
+        if ($('chk-remember')) $('chk-remember').checked = true;
+      }
+    }
+  } catch(e) { /* 무시 */ }
+})();
 
 </script>
 
