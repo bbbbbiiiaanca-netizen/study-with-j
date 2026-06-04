@@ -4012,7 +4012,7 @@ async function loadStudent() {
   }
 
   async function loadMonthlyTarget(year, month, student) {
-    if (!student) return { targetCount: 0, locked: false, saved: false };
+    if (!student) return { targetCount: 0, locked: false, saved: false, error: false };
     try {
       const snap = await getDoc(doc(db, 'monthly_targets', monthlyTargetKey(year, month, student.id)));
       if (snap.exists()) {
@@ -4020,11 +4020,14 @@ async function loadStudent() {
         return {
           targetCount: typeof d.targetCount === 'number' ? d.targetCount : getStudentDefaultTarget(student),
           locked: d.locked === true,
-          saved: true
+          saved: true,
+          error: false
         };
       }
-    } catch(e) {}
-    return { targetCount: getStudentDefaultTarget(student), locked: false, saved: false };
+      return { targetCount: getStudentDefaultTarget(student), locked: false, saved: false, error: false };
+    } catch(e) {
+      return { targetCount: getStudentDefaultTarget(student), locked: false, saved: false, error: true };
+    }
   }
 
   async function saveMonthlyTarget(year, month, student, targetCount, locked) {
@@ -4054,7 +4057,15 @@ async function loadStudent() {
       return;
     }
     const key = scheduleMonthKey(calYear, calMonth);
-    const { targetCount, locked, saved } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    const { targetCount, locked, saved, error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) {
+      inputEl.value = ''; inputEl.disabled = true;
+      saveBtn.disabled = true;
+      lockBtn.disabled = true; lockBtn.style.opacity = '0.55';
+      statusEl.textContent = '월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.';
+      statusEl.style.color = '#e53935';
+      return;
+    }
     calMonthlyTarget = targetCount; calMonthlyTargetLocked = locked; calMonthlyTargetSaved = saved;
     inputEl.value = targetCount || ''; inputEl.disabled = locked;
     saveBtn.disabled = locked;
@@ -4073,6 +4084,8 @@ async function loadStudent() {
 
   window.saveThisMonthTarget = async () => {
     if (!schedSel) { alert('학생을 먼저 선택하세요.'); return; }
+    const { error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) { alert('월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
     const inputEl = $('monthly-target-input');
     const targetCount = parseInt(inputEl?.value) || 0;
     try {
@@ -4085,9 +4098,12 @@ async function loadStudent() {
   window.toggleMonthlyTargetLock = async () => {
     if (!schedSel) { alert('학생을 먼저 선택하세요.'); return; }
     const key = scheduleMonthKey(calYear, calMonth);
-    const { targetCount, locked, saved } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    const { targetCount, locked, error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) { alert('월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
     const inputEl = $('monthly-target-input');
-    const tc = saved ? targetCount : (parseInt(inputEl?.value) || targetCount);
+    // 잠금할 때는 현재 input 값 우선 사용, 비어 있으면 로드된 값 유지
+    // 잠금 해제할 때는 기존 저장값 유지하고 locked만 false로 변경
+    const tc = locked ? targetCount : (parseInt(inputEl?.value) || targetCount);
     const msg = locked
       ? `${schedSel.name}의 ${key} 월목표 잠금을 해제할까요?`
       : `${schedSel.name}의 ${key} 월목표를 잠글까요?`;
