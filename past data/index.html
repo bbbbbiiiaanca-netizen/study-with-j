@@ -2796,7 +2796,7 @@ window.doLogin = async () => {
 // ---- BACKUP / RESTORE ----
 const BACKUP_COLLECTIONS = [
   'students','homework','homework_locks','progress','comments','announcements',
-  'student_schedules','schedule_events','schedule_published','lessons','biweekly_reports',
+  'student_schedules','schedule_events','schedule_published','schedule_locks','lessons','biweekly_reports',
   'feedbacks','tuition_settings','tuition_payments','notification_tokens','push_tests'
 ];
 function encodeBackupValue(v) {
@@ -3566,6 +3566,7 @@ async function loadStudent() {
   let schedSel = null;
   let calYear = 2026, calMonth = 4; // 2026년 5월부터 시작
   let currentSlots = [], calEvts = {}, selectedDay = null;
+  let currentScheduleLocked = false;
   let currentSlotsLoaded = false;
   let pCalY = 2026, pCalM = 4, pSlots = [], pEvts = {};
   let sCalY = 2026, sCalM = 4, sSlots = [], sEvts = {};
@@ -3595,6 +3596,7 @@ async function loadStudent() {
     await autoMarkHolidays(student.id, currentSlots, calYear, calMonth, calEvts);
     renderCal('cal-grid','cal-title', calYear, calMonth, currentSlots, calEvts, true);
     await updateSchedulePublishStatus();
+    await updateScheduleLockStatus();
     updateProgress();
   }
 
@@ -3770,6 +3772,10 @@ async function loadStudent() {
 
   window.markDay = async (type) => {
     if (!selectedDay || !schedSel) return;
+    if (currentScheduleLocked) {
+      alert('이 달 스케줄은 잠금 상태라 수정할 수 없습니다. 잠금 해제 후 수정하세요.');
+      return;
+    }
     const ev = calEvts[selectedDay];
     const ids = ev?.ids?.length ? ev.ids : (ev?.id ? [ev.id] : []);
 
@@ -3832,12 +3838,12 @@ async function loadStudent() {
     if(calYear===2026 && calMonth===4) return; // 2026년 5월 이전 불가
     calMonth--; if(calMonth<0){calMonth=11;calYear--;}
     $('day-panel').style.display='none'; selectedDay=null;
-    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); updateProgress(); }
+    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); updateProgress(); }
   };
   window.calNext = async () => {
     calMonth++; if(calMonth>11){calMonth=0;calYear++;}
     $('day-panel').style.display='none'; selectedDay=null;
-    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); updateProgress(); }
+    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); updateProgress(); }
   };
 
 
@@ -3901,38 +3907,74 @@ async function loadStudent() {
     } catch(e) { alert('저장 실패'); }
   };
 
+  function scheduleLockKey(year, month, sid) {
+    return `${scheduleMonthKey(year, month)}_${sid}`;
+  }
+
+  async function isScheduleLocked(year, month, sid) {
+    if(!sid) return false;
+    try {
+      const snap = await getDoc(doc(db,'schedule_locks',scheduleLockKey(year,month,sid)));
+      return snap.exists() && snap.data().locked === true;
+    } catch(e) { return false; }
+  }
+
+  async function updateScheduleLockStatus() {
+    const statusEl = $('sched-lock-status');
+    const btnEl = $('sched-lock-btn');
+    if(!statusEl || !btnEl) return;
+    if(!schedSel){
+      currentScheduleLocked = false;
+      btnEl.disabled = true;
+      btnEl.style.opacity = '0.55';
+      statusEl.textContent = '';
+      return;
+    }
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1';
+    const key = scheduleMonthKey(calYear, calMonth);
+    const locked = await isScheduleLocked(calYear, calMonth, schedSel.id);
+    currentScheduleLocked = locked;
+    if(locked){
+      statusEl.textContent = `${schedSel.name} · ${key} 스케줄 잠금됨 · 수정 불가`;
+      statusEl.style.color = '#2E7D32';
+      btnEl.textContent = '🔓 이 달 잠금 해제';
+      btnEl.style.background = '#2E7D32';
+    } else {
+      statusEl.textContent = `${schedSel.name} · ${key} 스케줄 잠금 해제됨 · 수정 가능`;
+      statusEl.style.color = '#757575';
+      btnEl.textContent = '🔒 이 달 스케줄 잠금';
+      btnEl.style.background = '#5C6BC0';
+    }
+    applyScheduleLockToPanel();
+  }
+
   window.toggleScheduleLock = async () => {
     if(!schedSel){ alert('학생을 먼저 선택하세요.'); return; }
-    const lockBtn = $('sched-lock-btn');
-    const lockStatus = $('sched-lock-status');
-    const isLocked = lockBtn && lockBtn.dataset.locked === 'true';
-    if(isLocked) {
-      // 잠금 해제
-      lockBtn.dataset.locked = 'false';
-      lockBtn.textContent = '🔒 스케줄 잠금';
-      lockBtn.style.background = '#5C6BC0';
-      if(lockStatus) { lockStatus.textContent = '잠금 해제됨 · 수정 가능'; lockStatus.style.color = '#e53935'; }
-      // day-panel 버튼들 다시 활성화
-      document.querySelectorAll('#day-panel .day-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-    } else {
-      // 잠금
-      lockBtn.dataset.locked = 'true';
-      lockBtn.textContent = '🔓 잠금 해제';
-      lockBtn.style.background = '#2E7D32';
-      if(lockStatus) { lockStatus.textContent = '잠금됨 · 수정 불가'; lockStatus.style.color = '#2E7D32'; }
-      // day-panel 버튼들 비활성화
-      document.querySelectorAll('#day-panel .day-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
-    }
+    const key = scheduleMonthKey(calYear, calMonth);
+    const locked = await isScheduleLocked(calYear, calMonth, schedSel.id);
+    const msg = locked
+      ? `${schedSel.name}의 ${key} 스케줄 잠금을 해제할까요?`
+      : `${schedSel.name}의 ${key} 스케줄을 잠글까요? 잠금 후 이 달 출석/결석/보강 수정이 막힙니다.`;
+    if(!confirm(msg)) return;
+    try {
+      await setDoc(doc(db,'schedule_locks',scheduleLockKey(calYear,calMonth,schedSel.id)), {
+        month: key,
+        studentId: schedSel.id,
+        studentName: schedSel.name,
+        locked: !locked,
+        updatedAt: Timestamp.now()
+      });
+      await updateScheduleLockStatus();
+      if($('day-panel') && $('day-panel').style.display !== 'none') applyScheduleLockToPanel();
+    } catch(e) { alert('저장 실패: ' + e.message); }
   };
 
   // day-panel 열릴 때 잠금 상태 반영
   function applyScheduleLockToPanel() {
-    const lockBtn = $('sched-lock-btn');
-    if(!lockBtn) return;
-    const isLocked = lockBtn.dataset.locked === 'true';
     document.querySelectorAll('#day-panel .day-btn').forEach(b => {
-      b.disabled = isLocked;
-      b.style.opacity = isLocked ? '0.4' : '1';
+      b.disabled = currentScheduleLocked;
+      b.style.opacity = currentScheduleLocked ? '0.4' : '1';
     });
   }
   async function loadParentSched() {
