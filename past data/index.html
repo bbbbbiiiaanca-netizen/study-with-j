@@ -3916,7 +3916,7 @@ async function loadStudent() {
     try {
       const snap = await getDoc(doc(db,'schedule_locks',scheduleLockKey(year,month,sid)));
       return snap.exists() && snap.data().locked === true;
-    } catch(e) { return false; }
+    } catch(e) { return null; }
   }
 
   async function updateScheduleLockStatus() {
@@ -3934,6 +3934,17 @@ async function loadStudent() {
     btnEl.style.opacity = '1';
     const key = scheduleMonthKey(calYear, calMonth);
     const locked = await isScheduleLocked(calYear, calMonth, schedSel.id);
+    if(locked === null){
+      currentScheduleLocked = true;
+      statusEl.textContent = '스케줄 잠금 상태를 확인하지 못했습니다. 새로고침 후 다시 시도하세요.';
+      statusEl.style.color = '#e53935';
+      btnEl.textContent = '🔒 이 달 스케줄 잠금';
+      btnEl.style.background = '#5C6BC0';
+      btnEl.disabled = true;
+      btnEl.style.opacity = '0.55';
+      applyScheduleLockToPanel();
+      return;
+    }
     currentScheduleLocked = locked;
     if(locked){
       statusEl.textContent = `${schedSel.name} · ${key} 스케줄 잠금됨 · 수정 불가`;
@@ -3953,6 +3964,7 @@ async function loadStudent() {
     if(!schedSel){ alert('학생을 먼저 선택하세요.'); return; }
     const key = scheduleMonthKey(calYear, calMonth);
     const locked = await isScheduleLocked(calYear, calMonth, schedSel.id);
+    if(locked === null){ alert('잠금 상태를 확인하지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
     const msg = locked
       ? `${schedSel.name}의 ${key} 스케줄 잠금을 해제할까요?`
       : `${schedSel.name}의 ${key} 스케줄을 잠글까요? 잠금 후 이 달 출석/결석/보강 수정이 막힙니다.`;
