@@ -1982,6 +1982,15 @@ input, select, textarea, button { box-sizing: border-box; }
             <button class="btn-add" id="sched-lock-btn" onclick="toggleScheduleLock()" style="background:#5C6BC0">🔒 스케줄 잠금</button>
             <div class="publish-status" id="sched-lock-status" style="margin-top:0.25rem"></div>
           </div>
+          <div class="publish-box" style="margin-top:0.5rem">
+            <div class="publish-status" id="monthly-target-status" style="margin-bottom:0.3rem">기본 월목표 적용 중</div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <label style="font-size:0.82rem;color:var(--muted);white-space:nowrap">이 달 월목표</label>
+              <input type="number" id="monthly-target-input" min="0" max="60" placeholder="횟수" style="width:4.5rem;padding:0.25rem 0.4rem;border:1.5px solid var(--border);border-radius:6px;font-size:0.9rem">
+              <button class="btn-add" id="monthly-target-save-btn" onclick="saveThisMonthTarget()" style="padding:0.25rem 0.7rem;font-size:0.85rem;margin:0">저장</button>
+              <button class="btn-add" id="monthly-target-lock-btn" onclick="toggleMonthlyTargetLock()" style="background:#5C6BC0;padding:0.25rem 0.7rem;font-size:0.85rem;margin:0">🔒 잠금</button>
+            </div>
+          </div>
           <div id="cal-grid" class="cal-wrap"></div>
           <div class="legend">
             <div class="legend-item"><div class="legend-dot" style="background:#C8E6C9"></div>수업예정</div>
@@ -2796,7 +2805,7 @@ window.doLogin = async () => {
 // ---- BACKUP / RESTORE ----
 const BACKUP_COLLECTIONS = [
   'students','homework','homework_locks','progress','comments','announcements',
-  'student_schedules','schedule_events','schedule_published','schedule_locks','lessons','biweekly_reports',
+  'student_schedules','schedule_events','schedule_published','schedule_locks','monthly_targets','lessons','biweekly_reports',
   'feedbacks','tuition_settings','tuition_payments','notification_tokens','push_tests'
 ];
 function encodeBackupValue(v) {
@@ -3567,6 +3576,9 @@ async function loadStudent() {
   let calYear = 2026, calMonth = 4; // 2026년 5월부터 시작
   let currentSlots = [], calEvts = {}, selectedDay = null;
   let currentScheduleLocked = false;
+  let calMonthlyTarget = 0;
+  let calMonthlyTargetLocked = false;
+  let calMonthlyTargetSaved = false;
   let currentSlotsLoaded = false;
   let pCalY = 2026, pCalM = 4, pSlots = [], pEvts = {};
   let sCalY = 2026, sCalM = 4, sSlots = [], sEvts = {};
@@ -3597,6 +3609,7 @@ async function loadStudent() {
     renderCal('cal-grid','cal-title', calYear, calMonth, currentSlots, calEvts, true);
     await updateSchedulePublishStatus();
     await updateScheduleLockStatus();
+    await updateMonthlyTargetUI();
     updateProgress();
   }
 
@@ -3815,8 +3828,7 @@ async function loadStudent() {
 
   function updateProgress() {
     if (!schedSel) return;
-    const studentData = students.find(s => s.id === schedSel.id);
-    const target = studentData?.monthlyTarget || 0;
+    const target = calMonthlyTarget;
     const done = Object.values(calEvts).filter(e=>e.type==='attended'||e.type==='makeup'||e.type==='party').length;
     const deducted = Object.values(calEvts).filter(e=>e.type==='absent').length;
     const remain = target - done - deducted;
@@ -3838,12 +3850,12 @@ async function loadStudent() {
     if(calYear===2026 && calMonth===4) return; // 2026년 5월 이전 불가
     calMonth--; if(calMonth<0){calMonth=11;calYear--;}
     $('day-panel').style.display='none'; selectedDay=null;
-    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); updateProgress(); }
+    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); await updateMonthlyTargetUI(); updateProgress(); }
   };
   window.calNext = async () => {
     calMonth++; if(calMonth>11){calMonth=0;calYear++;}
     $('day-panel').style.display='none'; selectedDay=null;
-    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); updateProgress(); }
+    if(schedSel){ await loadEvts(schedSel.id,calYear,calMonth,calEvts); await autoMarkHolidays(schedSel.id,currentSlots,calYear,calMonth,calEvts); renderCal('cal-grid','cal-title',calYear,calMonth,currentSlots,calEvts,true); await updateSchedulePublishStatus(); await updateScheduleLockStatus(); await updateMonthlyTargetUI(); updateProgress(); }
   };
 
 
@@ -3989,6 +4001,120 @@ async function loadStudent() {
       b.style.opacity = currentScheduleLocked ? '0.4' : '1';
     });
   }
+
+  // ===== 월별 월목표 =====
+  function monthlyTargetKey(year, month, sid) {
+    return `${scheduleMonthKey(year, month)}_${sid}`;
+  }
+
+  function getStudentDefaultTarget(student) {
+    return parseInt(student?.monthlyTarget) || 0;
+  }
+
+  async function loadMonthlyTarget(year, month, student) {
+    if (!student) return { targetCount: 0, locked: false, saved: false, error: false };
+    try {
+      const snap = await getDoc(doc(db, 'monthly_targets', monthlyTargetKey(year, month, student.id)));
+      if (snap.exists()) {
+        const d = snap.data();
+        return {
+          targetCount: typeof d.targetCount === 'number' ? d.targetCount : getStudentDefaultTarget(student),
+          locked: d.locked === true,
+          saved: true,
+          error: false
+        };
+      }
+      return { targetCount: getStudentDefaultTarget(student), locked: false, saved: false, error: false };
+    } catch(e) {
+      return { targetCount: getStudentDefaultTarget(student), locked: false, saved: false, error: true };
+    }
+  }
+
+  async function saveMonthlyTarget(year, month, student, targetCount, locked) {
+    const key = scheduleMonthKey(year, month);
+    await setDoc(doc(db, 'monthly_targets', monthlyTargetKey(year, month, student.id)), {
+      month: key,
+      studentId: student.id,
+      studentName: student.name,
+      targetCount: parseInt(targetCount) || 0,
+      locked: locked === true,
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async function updateMonthlyTargetUI() {
+    const inputEl = $('monthly-target-input');
+    const saveBtn = $('monthly-target-save-btn');
+    const lockBtn = $('monthly-target-lock-btn');
+    const statusEl = $('monthly-target-status');
+    if (!inputEl || !saveBtn || !lockBtn || !statusEl) return;
+    if (!schedSel) {
+      calMonthlyTarget = 0; calMonthlyTargetLocked = false; calMonthlyTargetSaved = false;
+      inputEl.value = ''; inputEl.disabled = true;
+      saveBtn.disabled = true;
+      lockBtn.disabled = true; lockBtn.style.opacity = '0.55';
+      statusEl.textContent = '학생을 먼저 선택하세요.'; statusEl.style.color = 'var(--muted)';
+      return;
+    }
+    const key = scheduleMonthKey(calYear, calMonth);
+    const { targetCount, locked, saved, error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) {
+      inputEl.value = ''; inputEl.disabled = true;
+      saveBtn.disabled = true;
+      lockBtn.disabled = true; lockBtn.style.opacity = '0.55';
+      statusEl.textContent = '월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.';
+      statusEl.style.color = '#e53935';
+      return;
+    }
+    calMonthlyTarget = targetCount; calMonthlyTargetLocked = locked; calMonthlyTargetSaved = saved;
+    inputEl.value = targetCount || ''; inputEl.disabled = locked;
+    saveBtn.disabled = locked;
+    lockBtn.disabled = false; lockBtn.style.opacity = '1';
+    if (locked) {
+      statusEl.textContent = `${key} 월목표 잠금됨`; statusEl.style.color = '#2E7D32';
+      lockBtn.textContent = '🔓 잠금 해제'; lockBtn.style.background = '#2E7D32';
+    } else if (saved) {
+      statusEl.textContent = `${key} 월목표 저장됨`; statusEl.style.color = '#1565C0';
+      lockBtn.textContent = '🔒 월목표 잠금'; lockBtn.style.background = '#5C6BC0';
+    } else {
+      statusEl.textContent = '기본 월목표 적용 중'; statusEl.style.color = '#757575';
+      lockBtn.textContent = '🔒 월목표 잠금'; lockBtn.style.background = '#5C6BC0';
+    }
+  }
+
+  window.saveThisMonthTarget = async () => {
+    if (!schedSel) { alert('학생을 먼저 선택하세요.'); return; }
+    const { error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) { alert('월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
+    const inputEl = $('monthly-target-input');
+    const targetCount = parseInt(inputEl?.value) || 0;
+    try {
+      await saveMonthlyTarget(calYear, calMonth, schedSel, targetCount, false);
+      await updateMonthlyTargetUI();
+      updateProgress();
+    } catch(e) { alert('저장 실패: ' + e.message); }
+  };
+
+  window.toggleMonthlyTargetLock = async () => {
+    if (!schedSel) { alert('학생을 먼저 선택하세요.'); return; }
+    const key = scheduleMonthKey(calYear, calMonth);
+    const { targetCount, locked, error } = await loadMonthlyTarget(calYear, calMonth, schedSel);
+    if (error) { alert('월목표를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
+    const inputEl = $('monthly-target-input');
+    // 잠금할 때는 현재 input 값 우선 사용, 비어 있으면 로드된 값 유지
+    // 잠금 해제할 때는 기존 저장값 유지하고 locked만 false로 변경
+    const tc = locked ? targetCount : (parseInt(inputEl?.value) || targetCount);
+    const msg = locked
+      ? `${schedSel.name}의 ${key} 월목표 잠금을 해제할까요?`
+      : `${schedSel.name}의 ${key} 월목표를 잠글까요?`;
+    if (!confirm(msg)) return;
+    try {
+      await saveMonthlyTarget(calYear, calMonth, schedSel, tc, !locked);
+      await updateMonthlyTargetUI();
+      updateProgress();
+    } catch(e) { alert('저장 실패: ' + e.message); }
+  };
+
   async function loadParentSched() {
     if (!curStudent) return;
     $('p-cal-title').textContent = pCalY+'년 '+(pCalM+1)+'월';
@@ -4006,7 +4132,8 @@ async function loadStudent() {
       $('p-sched-info').style.display='flex';
       try{
         if(!_cache.studentData){const pSnap=await getDoc(doc(db,'students',curStudent.id));_cache.studentData=pSnap.exists()?pSnap.data():{};}
-        const pTarget=_cache.studentData.monthlyTarget||0;
+        const pStudentObj={id:curStudent.id,monthlyTarget:_cache.studentData.monthlyTarget||0};
+        const {targetCount:pTarget}=await loadMonthlyTarget(pCalY,pCalM,pStudentObj);
         const pRemain=pTarget-(pDone+pDeducted);
         if($('p-inf-target')) { $('p-inf-target').textContent=pTarget?pTarget+'회':'미설정'; $('p-inf-done').textContent=pDone+'회'; $('p-inf-remain').textContent=pTarget?(pRemain)+'회':'-'; $('p-inf-remain').style.color=pRemain>0?'#e53935':'#2E7D32'; }
       }catch(e){}
@@ -4034,7 +4161,8 @@ async function loadStudent() {
       $('s-sched-info').style.display='flex';
       try{
         const sSnap=await getDoc(doc(db,'students',curStudent.id));
-        const sTarget=sSnap.exists()?(sSnap.data().monthlyTarget||0):0;
+        const sStudentObj={id:curStudent.id,monthlyTarget:sSnap.exists()?(sSnap.data().monthlyTarget||0):0};
+        const {targetCount:sTarget}=await loadMonthlyTarget(sCalY,sCalM,sStudentObj);
         const sRemain=sTarget-(sDone+sDeducted);
         if($('s-inf-target')){ $('s-inf-target').textContent=sTarget?sTarget+'회':'미설정'; $('s-inf-done').textContent=sDone+'회'; $('s-inf-remain').textContent=sTarget?sRemain+'회':'-'; $('s-inf-remain').style.color=sRemain>0?'#e53935':'#2E7D32'; }
       }catch(e){}
@@ -4518,7 +4646,7 @@ async function loadStudent() {
     renderCal('pv-cal-grid','pv-cal-title',pvCalY,pvCalM,pvSlots,pvEvts,false);
     const pvDone=Object.values(pvEvts).filter(e=>e.type==='attended'||e.type==='makeup').length;
     const pvDeducted=Object.values(pvEvts).filter(e=>e.type==='absent').length;
-    const pvTarget=pvSel.monthlyTarget||0;
+    const {targetCount:pvTarget}=await loadMonthlyTarget(pvCalY,pvCalM,pvSel);
     const pvRemain=pvTarget-(pvDone+pvDeducted);
     if($('pv-sched-info')) $('pv-sched-info').style.display='flex';
     if($('pv-inf-target')){ $('pv-inf-target').textContent=pvTarget?pvTarget+'회':'미설정'; $('pv-inf-done').textContent=pvDone+'회'; $('pv-inf-remain').textContent=pvTarget?pvRemain+'회':'-'; $('pv-inf-remain').style.color=pvRemain>0?'#e53935':'#2E7D32'; }
