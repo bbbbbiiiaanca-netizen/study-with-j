@@ -2959,41 +2959,16 @@ async function autoMarkAttendance() {
     const yesterdayDate = new Date();
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterday = yesterdayDate.toISOString().slice(0, 10);
-    const studentsSnap = await getDocs(collection(db, 'students'));
-    for (const stDoc of studentsSnap.docs) {
-      const sid = stDoc.id;
-      const slotsSnap = await getDoc(doc(db, 'student_schedules', sid));
-      const weeklySlots = slotsSnap.exists() ? (slotsSnap.data().weeklySlots || []) : [];
-      if (!weeklySlots.length) continue;
-      // 최근 3개월 이벤트 조회
-      const evSnap = await getDocs(collection(db, 'schedule_events'));
-      const manualDates = new Set();
-      evSnap.forEach(d => {
-        const ev = d.data();
-        if (ev.studentId === sid && !ev.autoHoliday) {
-          manualDates.add(ev.date);
-        }
-      });
-      // 지난 90일 중 주간 스케줄 요일에 해당하는 날 체크
-      const now = new Date();
-      for (let i = 1; i <= 90; i++) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
-        if (ds > yesterday) continue;
-        const dow = d.getDay();
-        const hasSlot = weeklySlots.some(s => Number(s.day) === dow);
-        if (!hasSlot) continue;
-        if (manualDates.has(ds)) continue; // 선생님이 수동 수정한 날짜는 skip
-        // 이미 이벤트 있는지 확인
-        const existing = evSnap.docs.find(ev => ev.data().studentId === sid && ev.data().date === ds);
-        if (existing) continue;
-        // 자동 출석 저장
-        const safeId = `${sid}_${ds}`.replace(/[^a-zA-Z0-9_-]/g, '_') + '_auto';
-        await setDoc(doc(db, 'schedule_events', safeId), {
-          studentId: sid, date: ds, type: 'attended', autoAttend: true, updatedAt: Timestamp.now()
-        }, { merge: false });
-      }
+    // 자동 출석은 "수업예정(scheduled)"으로 저장된 날짜가 지난 경우에만 적용.
+    // 이벤트가 없는 빈 날짜/주말에 새 출석 문서를 만들지 않는다.
+    const evSnap = await getDocs(collection(db, 'schedule_events'));
+    for (const evDoc of evSnap.docs) {
+      const ev = evDoc.data();
+      if (ev.type !== 'scheduled') continue;
+      if (!ev.date || ev.date > yesterday) continue;
+      await setDoc(doc(db, 'schedule_events', evDoc.id), {
+        ...ev, type: 'attended', autoAttend: true, updatedAt: Timestamp.now()
+      }, { merge: false });
     }
     console.log('자동 출석 처리 완료');
   } catch(e) { console.warn('autoMarkAttendance error', e); }
@@ -3573,15 +3548,16 @@ async function loadStudent() {
   // ===== SCHEDULE & CALENDAR =====
   const DAYS_KR = ['일','월','화','수','목','금','토'];
   let schedSel = null;
-  let calYear = 2026, calMonth = 4; // 2026년 5월부터 시작
+  const _calInitNow = new Date();
+  let calYear = _calInitNow.getFullYear(), calMonth = _calInitNow.getMonth(); // 앱 진입 시 현재 월 (2026년 5월 이전 이동 불가)
   let currentSlots = [], calEvts = {}, selectedDay = null;
   let currentScheduleLocked = false;
   let calMonthlyTarget = 0;
   let calMonthlyTargetLocked = false;
   let calMonthlyTargetSaved = false;
   let currentSlotsLoaded = false;
-  let pCalY = 2026, pCalM = 4, pSlots = [], pEvts = {};
-  let sCalY = 2026, sCalM = 4, sSlots = [], sEvts = {};
+  let pCalY = _calInitNow.getFullYear(), pCalM = _calInitNow.getMonth(), pSlots = [], pEvts = {};
+  let sCalY = _calInitNow.getFullYear(), sCalM = _calInitNow.getMonth(), sSlots = [], sEvts = {};
 
   function buildSchedChips() {
     const el = $('sched-chips');
