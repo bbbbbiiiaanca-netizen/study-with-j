@@ -1851,6 +1851,18 @@ input, select, textarea, button { box-sizing: border-box; }
         </div>
         <div id="restore-status" class="loading-txt" style="text-align:left;margin-top:0.9rem"></div>
       </div>
+      <div class="card" style="border:1.5px solid #c62828">
+        <div class="ctitle">🧹 오염 출석 데이터 정리</div>
+        <div style="font-size:0.9rem;color:#b45309;line-height:1.8;margin-bottom:1rem;font-weight:700">
+          자동출석 버그로 생성된 <code>autoAttend:true</code> 이벤트를 정리합니다.<br>
+          삭제 전 반드시 전체 백업을 먼저 받으세요. 삭제 후 복구 불가.
+        </div>
+        <div style="display:flex;gap:0.7rem;flex-wrap:wrap;margin-bottom:0.7rem">
+          <button class="btn-add" style="background:#6f7f95" onclick="diagnoseDirtyAttendance()">🔍 오염 데이터 진단</button>
+          <button class="btn-add" style="background:#c62828;display:none" id="dirty-delete-btn" onclick="deleteDirtyAttendance()">🗑 삭제 실행</button>
+        </div>
+        <div id="dirty-attend-status" class="loading-txt" style="text-align:left;margin-top:0.7rem"></div>
+      </div>
     </div>
 
 <!-- 미리보기 -->
@@ -2933,6 +2945,67 @@ window.restoreFullBackup = async () => {
   } catch(e) {
     console.error(e);
     box.textContent = '복원 실패: ' + (e.message || e);
+  }
+};
+window.diagnoseDirtyAttendance = async () => {
+  if (role !== 'admin') { alert('관리자 화면에서만 사용할 수 있어.'); return; }
+  const box = $('dirty-attend-status');
+  const delBtn = $('dirty-delete-btn');
+  if (delBtn) delBtn.style.display = 'none';
+  try {
+    box.textContent = '진단 중...';
+    const q = query(collection(db, 'schedule_events'), where('autoAttend', '==', true));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      box.innerHTML = '✅ 오염 데이터 없음. autoAttend:true 문서가 존재하지 않습니다.';
+      return;
+    }
+    const groups = {};
+    snap.forEach(d => {
+      const ev = d.data();
+      const key = `${ev.studentName || ev.studentId || '(unknown)'} / ${(ev.date || '').slice(0, 7) || '(날짜없음)'}`;
+      groups[key] = (groups[key] || 0) + 1;
+    });
+    const lines = Object.entries(groups).sort().map(([k, v]) => `${k}: ${v}건`);
+    box.innerHTML = `<b>총 ${snap.size}건 발견</b><br>${lines.map(x => `<div style="font-size:0.85rem">${x}</div>`).join('')}<br><span style="color:#c62828;font-size:0.85rem">⚠ 삭제 후 복구 불가. 먼저 전체 백업을 받으세요.</span>`;
+    if (delBtn) { delBtn.style.display = ''; delBtn.dataset.count = snap.size; }
+  } catch(e) {
+    console.error(e);
+    box.textContent = '진단 실패: ' + (e.message || e);
+  }
+};
+window.deleteDirtyAttendance = async () => {
+  if (role !== 'admin') { alert('관리자 화면에서만 사용할 수 있어.'); return; }
+  const box = $('dirty-attend-status');
+  const delBtn = $('dirty-delete-btn');
+  const count = parseInt(delBtn?.dataset.count || '0');
+  if (!count) { alert('먼저 진단 버튼을 눌러 오염 데이터를 확인하세요.'); return; }
+  const ok1 = confirm(`autoAttend:true 문서 ${count}건을 삭제합니다.\n삭제 후 복구 불가능합니다.\n계속하시겠습니까?`);
+  if (!ok1) return;
+  const ok2 = confirm(`최종 확인: 정말 삭제하시겠습니까?\n전체 백업을 먼저 받으셨나요?\n확인을 누르면 즉시 삭제됩니다.`);
+  if (!ok2) return;
+  try {
+    box.textContent = '삭제 중...';
+    if (delBtn) delBtn.disabled = true;
+    const q = query(collection(db, 'schedule_events'), where('autoAttend', '==', true));
+    const snap = await getDocs(q);
+    let done = 0, failed = 0;
+    for (const d of snap.docs) {
+      try {
+        await deleteDoc(doc(db, 'schedule_events', d.id));
+        done++;
+        if (done % 5 === 0) box.textContent = `삭제 중... ${done}/${snap.size}`;
+      } catch(e2) {
+        failed++;
+        console.warn('삭제 실패:', d.id, e2);
+      }
+    }
+    box.innerHTML = `✅ 삭제 완료: ${done}건 삭제, 실패: ${failed}건`;
+    if (delBtn) { delBtn.style.display = 'none'; delBtn.disabled = false; }
+  } catch(e) {
+    console.error(e);
+    box.textContent = '삭제 실패: ' + (e.message || e);
+    if (delBtn) delBtn.disabled = false;
   }
 };
 
