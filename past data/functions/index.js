@@ -1,8 +1,64 @@
 const admin = require('firebase-admin');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// ---- AUTH: loginAdmin ----
+exports.loginAdmin = onCall(async (request) => {
+  const { password } = request.data || {};
+  const expectedPw = process.env.ADMIN_PW;
+
+  if (!expectedPw) {
+    throw new HttpsError('internal', 'Server configuration error');
+  }
+  if (!password || password !== expectedPw) {
+    throw new HttpsError('unauthenticated', '관리자 비밀번호가 올바르지 않습니다.');
+  }
+
+  const token = await admin.auth().createCustomToken('admin', { role: 'admin' });
+  return { token };
+});
+
+// ---- AUTH: loginStudentOrParent ----
+exports.loginStudentOrParent = onCall(async (request) => {
+  const { role, name, password } = request.data || {};
+
+  if (!['student', 'parent'].includes(role)) {
+    throw new HttpsError('invalid-argument', '역할을 올바르게 선택하세요.');
+  }
+  if (!name || !password) {
+    throw new HttpsError('invalid-argument', '이름과 비밀번호를 입력하세요.');
+  }
+
+  const normalizedName = name.replace(/\s+/g, '');
+  const snap = await db.collection('students').get();
+  let matchDoc = null;
+  snap.forEach(d => {
+    const dName = (d.data().name || '').replace(/\s+/g, '');
+    if (dName === normalizedName) matchDoc = d;
+  });
+
+  if (!matchDoc) {
+    throw new HttpsError('not-found', '이름을 찾을 수 없습니다.');
+  }
+
+  const data = matchDoc.data();
+  const expectedPw = role === 'parent' ? (data.birthdate + '0') : data.birthdate;
+
+  if (password !== expectedPw) {
+    throw new HttpsError('unauthenticated', '비밀번호가 올바르지 않습니다.');
+  }
+
+  const uid = `${role}_${matchDoc.id}`;
+  const token = await admin.auth().createCustomToken(uid, {
+    role,
+    studentId: matchDoc.id,
+    studentName: data.name || '',
+  });
+  return { token };
+});
 
 async function getTokensForRole(role, studentId = '') {
   let q = db.collection('notification_tokens').where('role', '==', role).where('active', '==', true);
