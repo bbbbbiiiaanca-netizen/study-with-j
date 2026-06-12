@@ -11,14 +11,20 @@ exports.loginAdmin = onCall(async (request) => {
   const expectedPw = process.env.ADMIN_PW;
 
   if (!expectedPw) {
-    throw new HttpsError('internal', 'Server configuration error');
+    console.error('[loginAdmin] ADMIN_PW 환경변수가 설정되지 않았습니다. functions/.env 파일을 확인하세요.');
+    throw new HttpsError('failed-precondition', 'ADMIN_PW 환경변수가 설정되지 않았습니다.');
   }
   if (!password || password !== expectedPw) {
     throw new HttpsError('unauthenticated', '관리자 비밀번호가 올바르지 않습니다.');
   }
 
-  const token = await admin.auth().createCustomToken('admin', { role: 'admin' });
-  return { token };
+  try {
+    const token = await admin.auth().createCustomToken('admin', { role: 'admin' });
+    return { token };
+  } catch (e) {
+    console.error('[loginAdmin] createCustomToken 실패:', e.message);
+    throw new HttpsError('internal', 'Token 생성 실패: ' + e.message);
+  }
 });
 
 // ---- AUTH: loginStudentOrParent ----
@@ -52,12 +58,17 @@ exports.loginStudentOrParent = onCall(async (request) => {
   }
 
   const uid = `${role}_${matchDoc.id}`;
-  const token = await admin.auth().createCustomToken(uid, {
-    role,
-    studentId: matchDoc.id,
-    studentName: data.name || '',
-  });
-  return { token };
+  try {
+    const token = await admin.auth().createCustomToken(uid, {
+      role,
+      studentId: matchDoc.id,
+      studentName: data.name || '',
+    });
+    return { token };
+  } catch (e) {
+    console.error('[loginStudentOrParent] createCustomToken 실패:', e.message);
+    throw new HttpsError('internal', 'Token 생성 실패: ' + e.message);
+  }
 });
 
 async function getTokensForRole(role, studentId = '') {
