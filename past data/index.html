@@ -2291,8 +2291,6 @@ input, select, textarea, button { box-sizing: border-box; }
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, orderBy, query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
-import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js';
 
 const cfg = {
   apiKey: "AIzaSyB1B-XxzJQ29ZtodYn-BWUshf2Q6gkLI-U",
@@ -2304,14 +2302,14 @@ const cfg = {
 };
 const app = initializeApp(cfg);
 const db = getFirestore(app);
-const auth = getAuth(app);
-const funcs = getFunctions(app);
 
 // Firebase Cloud Messaging 설정
 // Firebase Console > Cloud Messaging > Web Push certificates 에서 공개 VAPID 키를 발급한 뒤 아래 값에 붙여 넣어야 실제 휴대폰 푸시가 작동합니다.
 const FCM_VAPID_KEY = 'BIO3T3vK29NN7hH7tP_L3fOQ6cfatJCOR01JeNivVXRGw75DU8CVaQaXjRksM5mudy5rMTBGMPAXAnI0Y-Fmj9Q';
 let messaging = null;
 let pushReady = false;
+
+const ADMIN_PW = "32726629";
 let role = null;
 let curStudent = null; // {id, name}
 let students = [];
@@ -2770,17 +2768,12 @@ window.doLogin = async () => {
   const autoLoginChecked = $('chk-autologin') && $('chk-autologin').checked;
 
   if (role === 'admin') {
-    try {
-      const fn = httpsCallable(funcs, 'loginAdmin');
-      const result = await fn({ password: pw });
-      await signInWithCustomToken(auth, result.data.token);
+    if (pw === ADMIN_PW) {
       if (rememberChecked) localStorage.setItem('hj_remember', JSON.stringify({ role: 'admin' }));
       if (autoLoginChecked) localStorage.setItem('hj_autologin', JSON.stringify({ role: 'admin', pw }));
       showPage('admin-page'); await initAdmin(); initPushMessaging();
-    } catch(e) {
-      if (e.code === 'functions/unauthenticated') showErr('관리자 비밀번호가 틀렸습니다.');
-      else showErr('오류가 발생했습니다. 다시 시도하세요.');
     }
+    else showErr('관리자 비밀번호가 틀렸습니다.');
     return;
   }
 
@@ -2788,11 +2781,17 @@ window.doLogin = async () => {
   if (!nameInput) { showErr('이름을 입력해주세요.'); return; }
 
   try {
-    const fn = httpsCallable(funcs, 'loginStudentOrParent');
-    const result = await fn({ role, name: nameInput, password: pw });
-    const credential = await signInWithCustomToken(auth, result.data.token);
-    const claims = (await credential.user.getIdTokenResult()).claims;
-    curStudent = { id: claims.studentId, name: claims.studentName };
+    const allSnap = await getDocs(collection(db, 'students'));
+    let matchDoc = null;
+    allSnap.forEach(d => {
+      if (d.data().name.replace(/\s+/g,'') === nameInput) matchDoc = d;
+    });
+    if (!matchDoc) { showErr('이름을 찾을 수 없습니다.'); return; }
+    const sid = matchDoc.id;
+    const data = matchDoc.data();
+    const expectedPw = role === 'parent' ? data.birthdate + '0' : data.birthdate;
+    if (expectedPw !== pw) { showErr('비밀번호가 올바르지 않습니다.'); return; }
+    curStudent = { id: sid, name: data.name };
 
     if (rememberChecked) localStorage.setItem('hj_remember', JSON.stringify({ role, name: nameInput }));
     if (autoLoginChecked) localStorage.setItem('hj_autologin', JSON.stringify({ role, name: nameInput, pw }));
@@ -2803,19 +2802,15 @@ window.doLogin = async () => {
 
     if (role === 'parent') {
       showPage('parent-page');
-      $('parent-tag').textContent = `${claims.studentName} 학부모님`;
-      if($('p-hw-title')) $('p-hw-title').textContent = `📝 ${claims.studentName} 숙제`;
+      $('parent-tag').textContent = `${data.name} 학부모님`;
+      if($('p-hw-title')) $('p-hw-title').textContent = `📝 ${data.name} 숙제`;
       loadParent(); initPushMessaging();
     } else {
       showPage('student-page');
-      $('student-tag').textContent = `${claims.studentName} 학생`;
+      $('student-tag').textContent = `${data.name} 학생`;
       loadStudent();
     }
-  } catch(e) {
-    if (e.code === 'functions/not-found') showErr('이름을 찾을 수 없습니다.');
-    else if (e.code === 'functions/unauthenticated') showErr('비밀번호가 올바르지 않습니다.');
-    else showErr('오류가 발생했습니다. 다시 시도하세요.');
-  }
+  } catch(e) { showErr('오류가 발생했습니다. 다시 시도하세요.'); }
 };
 
 
@@ -3099,8 +3094,6 @@ window.doLogout = () => {
   $('login-pw').value = '';
   $('name-group').style.display = 'none';
   $('login-err').style.display = 'none';
-  // Firebase Auth 세션 종료
-  signOut(auth).catch(() => {});
   // 자동로그인 해제 (아이디기억은 유지)
   localStorage.removeItem('hj_autologin');
   if ($('chk-autologin')) $('chk-autologin').checked = false;
@@ -5357,37 +5350,10 @@ async function loadStudent() {
 // ---- 아이디 기억 / 자동로그인 복원 ----
 (async function restoreLogin() {
   try {
-    // Firebase Auth 세션이 살아있으면 비밀번호 없이 자동 복원
-    const user = await new Promise(resolve => {
-      const unsub = onAuthStateChanged(auth, u => { unsub(); resolve(u); });
-    });
-    if (user) {
-      const claims = (await user.getIdTokenResult()).claims;
-      if (claims.role === 'admin') {
-        role = 'admin';
-        showPage('admin-page'); await initAdmin(); initPushMessaging();
-        return;
-      }
-      if ((claims.role === 'student' || claims.role === 'parent') && claims.studentId) {
-        role = claims.role;
-        curStudent = { id: claims.studentId, name: claims.studentName || '' };
-        if (role === 'parent') {
-          showPage('parent-page');
-          $('parent-tag').textContent = `${claims.studentName} 학부모님`;
-          if($('p-hw-title')) $('p-hw-title').textContent = `📝 ${claims.studentName} 숙제`;
-          loadParent(); initPushMessaging();
-        } else {
-          showPage('student-page');
-          $('student-tag').textContent = `${claims.studentName} 학생`;
-          loadStudent();
-        }
-        return;
-      }
-    }
-    // Firebase Auth 세션 없을 때: localStorage 자동로그인 fallback
     const autoData = localStorage.getItem('hj_autologin');
     if (autoData) {
       const saved = JSON.parse(autoData);
+      // 자동로그인: 저장된 정보로 바로 로그인
       if (saved.role) {
         pickRole(saved.role);
         if (saved.name) $('inp-student').value = saved.name;
