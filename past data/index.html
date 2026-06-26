@@ -242,7 +242,7 @@ textarea.finput { resize: vertical; min-height: 78px; line-height: 1.65; padding
 .makeup { background: #FFF9C4 !important; border-color: #FDD835 !important; }
 .party { background: #FFD6E0 !important; border-color: #F48FB1 !important; }
 .scheduled-manual { background: #C8E6C9 !important; border-color: #81C784 !important; }
-.closed { background: #FFE0B2 !important; border-color: #FB8C00 !important; }
+.closed { background: #FFF3E0 !important; border-color: #FFB74D !important; }
 .selected-cell { outline: 2px solid var(--brown-dark); outline-offset: 1px; }
 .cal-dn { font-size: 0.8rem; font-weight: 600; display: block; }
 .cal-lbl { font-size: 0.58rem; margin-top: 0.1rem; display: block; line-height: 1.2; }
@@ -1963,7 +1963,7 @@ input, select, textarea, button { box-sizing: border-box; }
               <div class="legend-item"><div class="legend-dot" style="background:#BDBDBD"></div>결석(차감)</div>
               <div class="legend-item"><div class="legend-dot" style="background:#F5F5F5;border:1.5px dashed #aaa"></div>공결</div>
               <div class="legend-item"><div class="legend-dot" style="background:#FFF9C4;border:1px solid #FDD835"></div>보강</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#FFE0B2;border:1px solid #FB8C00"></div>휴무</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#FFF3E0;border:1px solid #FFB74D"></div>휴무</div>
             </div>
           </div>
         </div>
@@ -2012,7 +2012,7 @@ input, select, textarea, button { box-sizing: border-box; }
             <div class="legend-item"><div class="legend-dot" style="background:#E0E0E0"></div>결석</div>
             <div class="legend-item"><div class="legend-dot" style="background:#FFF9C4;border:1px solid #FDD835"></div>보강</div>
             <div class="legend-item"><div class="legend-dot" style="background:#FFD6E0;border:1px solid #F48FB1"></div>보강+PARTY</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#FFE0B2;border:1px solid #FB8C00"></div>휴무</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FFF3E0;border:1px solid #FFB74D"></div>휴무</div>
           </div>
         </div>
 
@@ -2026,7 +2026,7 @@ input, select, textarea, button { box-sizing: border-box; }
             <button class="day-btn" onclick="markDay('excused')" style="background:#F5F5F5;border:1.5px dashed #aaa;color:#555">○ 공결 (보강예정)</button>
             <button class="day-btn" onclick="markDay('makeup')" style="background:#FFF9C4;border-color:#FDD835">＋ 보강</button>
             <button class="day-btn" onclick="markDay('party')" style="background:#FFD6E0;border-color:#F48FB1;color:#880E4F">🎉 보강+PARTY</button>
-            <button class="day-btn" onclick="markDay('closed')" style="background:#FFE0B2;border-color:#FB8C00;color:#E65100">🚫 휴무</button>
+            <button class="day-btn" onclick="markDay('closed')" style="background:#FFF3E0;border-color:#FFB74D;color:#8B4500">🚫 휴무</button>
             <button class="day-btn" onclick="markDay('clear')" style="background:white;border-color:var(--border)">초기화</button>
           </div>
         </div>
@@ -2192,7 +2192,7 @@ input, select, textarea, button { box-sizing: border-box; }
           <div class="legend-item"><div class="legend-dot" style="background:#BDBDBD"></div>결석(차감)</div>
           <div class="legend-item"><div class="legend-dot" style="background:#F5F5F5;border:1.5px dashed #aaa"></div>공결</div>
           <div class="legend-item"><div class="legend-dot" style="background:#FFF9C4;border:1px solid #FDD835"></div>보강</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#FFE0B2;border:1px solid #FB8C00"></div>휴무</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FFF3E0;border:1px solid #FFB74D"></div>휴무</div>
         </div>
       </div>
     </div>
@@ -2285,7 +2285,7 @@ input, select, textarea, button { box-sizing: border-box; }
           <div class="legend-item"><div class="legend-dot" style="background:#BDBDBD"></div>결석(차감)</div>
           <div class="legend-item"><div class="legend-dot" style="background:#F5F5F5;border:1.5px dashed #aaa"></div>공결</div>
           <div class="legend-item"><div class="legend-dot" style="background:#FFF9C4;border:1px solid #FDD835"></div>보강</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#FFE0B2;border:1px solid #FB8C00"></div>휴무</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FFF3E0;border:1px solid #FFB74D"></div>휴무</div>
         </div>
       </div>
     </div>
@@ -3810,7 +3810,7 @@ async function loadStudent() {
         else if(ev.type==='makeup'){cls+=' makeup';lbl='<span class="cal-lbl" style="color:#F57F17">보강</span>';}
         else if(ev.type==='party'){cls+=' party';lbl='<span class="cal-lbl" style="color:#880E4F">🎉PARTY</span>';}
         else if(ev.type==='scheduled'){cls+=' scheduled-manual';lbl='<span class="cal-lbl" style="color:#1B5E20">예정</span>';}
-        else if(ev.type==='closed'){cls+=' closed';lbl='<span class="cal-lbl" style="color:#E65100">휴무</span>'; }
+        else if(ev.type==='closed'){cls+=' closed';lbl='<span class="cal-lbl" style="color:#8B4500">🚫 휴무</span>';}
       } else if(isReg && !(ev && ev.type === 'none')){
         cls+=' regular';
         const slot = slots.find(s=>s.day===dow);
