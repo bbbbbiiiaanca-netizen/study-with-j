@@ -3733,13 +3733,15 @@ async function loadStudent() {
 
   function _eventPriority(ev) {
     if (!ev) return 0;
-    // 예전 버전에서 자동 생성된 공휴일 공결보다 선생님이 직접 수정한 값이 무조건 우선입니다.
     if (ev.autoHoliday) return 1;
-    if (ev.type === 'none') return 2;
+    if (ev.type === 'scheduled') return 2;
     if (ev.type === 'excused') return 3;
     if (ev.type === 'absent') return 4;
     if (ev.type === 'makeup') return 5;
+    if (ev.type === 'party') return 5;
     if (ev.type === 'attended') return 6;
+    // 선생님이 명시적으로 초기화한 날짜는 다른 모든 이벤트보다 최우선입니다.
+    if (ev.type === 'none') return 8;
     return 2;
   }
 
