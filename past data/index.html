@@ -4438,12 +4438,15 @@ async function loadStudent() {
     if(!docs.length) return '<div class="empty">등록된 2주 리포트가 없습니다</div>';
     return docs.map(d=>{
       const r=d.data();
-      return `<div class="lesson-card">
+      return `<div class="lesson-card" id="rcard-${d.id}">
         <div class="lesson-card-header">
           <div class="lesson-card-date">📄 ${r.date||''}</div>
-          ${withDel?`<button class="btn-del" onclick="window._delReport('${d.id}','${r.studentId}')">삭제</button>`:''}
+          ${withDel?`<div style="display:flex;gap:0.4rem">
+            <button style="font-size:0.78rem;padding:0.25rem 0.7rem;border-radius:6px;border:1.5px solid #5C7A99;background:#EAF2FB;color:#2c5f8a;cursor:pointer" onclick="window._editReport('${d.id}','${r.studentId||''}')">수정</button>
+            <button class="btn-del" onclick="window._delReport('${d.id}','${r.studentId||''}')">삭제</button>
+          </div>`:''}
         </div>
-        <div style="padding:1rem;white-space:pre-wrap;line-height:1.75;font-size:0.9rem">${r.content||'-'}</div>
+        <div id="rcard-body-${d.id}" style="padding:1rem;white-space:pre-wrap;line-height:1.75;font-size:0.9rem">${r.content||'-'}</div>
       </div>`;
     }).join('');
   }
@@ -4476,6 +4479,34 @@ async function loadStudent() {
     if(!confirm('이 2주 리포트를 삭제할까요?')) return;
     try{ await deleteDoc(doc(db,'biweekly_reports',id)); }catch(e){}
     if(sid) loadReportList(sid);
+  };
+
+  window._editReport = async (id, sid) => {
+    const snap = await getDoc(doc(db,'biweekly_reports',id));
+    if(!snap.exists()) return;
+    const r = snap.data();
+    const body = $(`rcard-body-${id}`);
+    if(!body) return;
+    body.style.whiteSpace = 'normal';
+    body.innerHTML = `
+      <div style="margin-bottom:0.5rem"><label style="font-size:0.8rem;color:#888;display:block;margin-bottom:0.25rem">작성일</label>
+        <input type="text" class="finput" id="redit-date-${id}" value="${r.date||''}" style="font-size:0.85rem"></div>
+      <textarea class="finput" id="redit-text-${id}" style="min-height:150px;resize:vertical;font-size:0.85rem"></textarea>
+      <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
+        <button class="btn-add" style="flex:1" onclick="window._updateReport('${id}','${sid}')">저장</button>
+        <button class="btn-del" onclick="loadReportList('${sid}')">취소</button>
+      </div>`;
+    $(`redit-text-${id}`).value = r.content || '';
+  };
+
+  window._updateReport = async (id, sid) => {
+    const newDate = ($(`redit-date-${id}`)?.value || '').trim();
+    const newContent = ($(`redit-text-${id}`)?.value || '').trim();
+    if(!newContent){ alert('내용을 입력하세요.'); return; }
+    try{
+      await updateDoc(doc(db,'biweekly_reports',id), { date: newDate, content: newContent, updatedAt: Timestamp.now() });
+      loadReportList(sid);
+    }catch(e){ alert('저장 실패: ' + e.message); }
   };
 
   async function loadParentReports(){
