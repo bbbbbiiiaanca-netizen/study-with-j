@@ -3745,10 +3745,10 @@ async function loadStudent() {
     if (ev.type === 'absent') return 4;
     if (ev.type === 'makeup') return 5;
     if (ev.type === 'party') return 5;
+    // 선생님이 명시적으로 초기화한 날짜는 최우선이지만, 출석 기록은 가려지지 않도록 출석보다 낮게 둡니다.
+    if (ev.type === 'none') return 5.5;
     if (ev.type === 'attended') return 6;
     if (ev.type === 'closed') return 7;
-    // 선생님이 명시적으로 초기화한 날짜는 다른 모든 이벤트보다 최우선입니다.
-    if (ev.type === 'none') return 8;
     return 2;
   }
 
