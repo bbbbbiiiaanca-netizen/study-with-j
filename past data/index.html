@@ -2315,7 +2315,7 @@ const FCM_VAPID_KEY = 'BIO3T3vK29NN7hH7tP_L3fOQ6cfatJCOR01JeNivVXRGw75DU8CVaQaXj
 let messaging = null;
 let pushReady = false;
 
-const ADMIN_PW = "32726629";
+const ADMIN_PW_HASH = "1db7a6b2880db3b93a8a6212bc21f29a4150587516fdca7542ef23a816a80290";
 let role = null;
 let curStudent = null; // {id, name}
 let students = [];
@@ -2774,7 +2774,8 @@ window.doLogin = async () => {
   const autoLoginChecked = $('chk-autologin') && $('chk-autologin').checked;
 
   if (role === 'admin') {
-    if (pw === ADMIN_PW) {
+    const pwHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+    if (pwHash === ADMIN_PW_HASH) {
       if (rememberChecked) localStorage.setItem('hj_remember', JSON.stringify({ role: 'admin' }));
       if (autoLoginChecked) localStorage.setItem('hj_autologin', JSON.stringify({ role: 'admin', pw }));
       showPage('admin-page'); await initAdmin(); initPushMessaging();
